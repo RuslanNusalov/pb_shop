@@ -10,6 +10,10 @@ class Category(models.Model):
         if not self.slug:
             self.slug = slugify(self.name)
         super().save(*args, **kwargs)
+    
+    class Meta:
+        verbose_name = "Категория"
+        verbose_name_plural = "Категории"
 
     def __str__(self):
         return self.name
@@ -17,6 +21,10 @@ class Category(models.Model):
 
 class Size(models.Model):
     name = models.CharField(max_length=20)
+
+    class Meta:
+        verbose_name = "Размер"
+        verbose_name_plural = "Размеры"
 
     def __str__(self):
         return self.name
@@ -39,6 +47,10 @@ class Product(models.Model):
         if not self.slug:
             self.slug = slugify(self.name)
         super().save(*args, **kwargs)
+
+    class Meta:
+        verbose_name = "Продукт"
+        verbose_name_plural = "Продукты"
 
     def __str__(self):
         return self.name
