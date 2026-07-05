@@ -8,7 +8,7 @@
                      class="max-h-full max-w-full object-contain">
             {% else %}
                 <div class="w-full h-full flex items-center justify-center">
-                    <span class="text-gray-400">No Image</span>
+                    <span class="text-gray-400">Нет изображения</span>
                 </div>
             {% endif %}
         </div>
@@ -16,9 +16,9 @@
         <!-- Product Info -->
         <div class="text-center">
             <h3 class="font-bold text-sm">{{ item.product.name|upper }}</h3>
-            <p class="text-xs">COLOR {{ item.product.color|upper }}</p>
-            <p class="text-xs">SIZE {{ item.product_size.size.name }}</p>
-            <p class="font-bold mt-1">${{ item.product.price }}</p>
+            <p class="text-xs">ЦВЕТ {{ item.product.color|upper }}</p>
+            <p class="text-xs">РАЗМЕР {{ item.product_size.size.name }}</p>
+            <p class="font-bold mt-1">₽{{ item.product.price }}</p>
             
             <!-- Quantity Controls -->
             <div class="flex items-center justify-center mt-2">
@@ -54,7 +54,7 @@
                     hx-swap="outerHTML"
                     hx-trigger="click"
                     hx-on::after-request="console.log('Remove Item {{ item.id }} Request Completed');">
-                Remove
+                Удалить
             </button>
         </div>
     </div>

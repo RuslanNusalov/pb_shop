@@ -43,23 +43,9 @@
     </div>
     
     <div>
-        {{ form.company }}
-        {% if form.company.errors %}
-            <div class="text-red-500 text-xs mt-1">{{ form.company.errors }}</div>
-        {% endif %}
-    </div>
-    
-    <div>
-        {{ form.address1 }}
-        {% if form.address1.errors %}
-            <div class="text-red-500 text-xs mt-1">{{ form.address1.errors }}</div>
-        {% endif %}
-    </div>
-    
-    <div>
-        {{ form.address2 }}
-        {% if form.address2.errors %}
-            <div class="text-red-500 text-xs mt-1">{{ form.address2.errors }}</div>
+        {{ form.address }}
+        {% if form.address.errors %}
+            <div class="text-red-500 text-xs mt-1">{{ form.address.errors }}</div>
         {% endif %}
     </div>
     
@@ -71,16 +57,9 @@
     </div>
     
     <div>
-        {{ form.country }}
-        {% if form.country.errors %}
-            <div class="text-red-500 text-xs mt-1">{{ form.country.errors }}</div>
-        {% endif %}
-    </div>
-    
-    <div>
-        {{ form.province }}
-        {% if form.province.errors %}
-            <div class="text-red-500 text-xs mt-1">{{ form.province.errors }}</div>
+        {{ form.region }}
+        {% if form.region.errors %}
+            <div class="text-red-500 text-xs mt-1">{{ form.region.errors }}</div>
         {% endif %}
     </div>
     
@@ -103,7 +82,7 @@
             type="submit"
             class="bg-gray-400 hover:bg-gray-500 text-white font-semibold py-2 px-4 transition-colors duration-200 text-sm tracking-wide"
         >
-            Save
+            Сохранить
         </button>
         <button 
             type="button"
@@ -111,7 +90,7 @@
             hx-target="#account-details-content" 
             class="border-2 border-gray-300 hover:border-gray-400 text-gray-700 hover:text-gray-900 font-semibold py-2 px-4 transition-colors duration-200 text-sm tracking-wide"
         >
-            Cancel
+            Отменить
         </button>
     </div>
 </form>

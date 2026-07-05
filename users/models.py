@@ -31,12 +31,9 @@ class CustomUser(AbstractUser):
     email = models.EmailField('почта', unique=True, max_length=254)
     first_name = models.CharField('имя', max_length=50, blank=False)
     last_name = models.CharField('фамилия', max_length=50, blank=False)
-    #company = models.CharField(max_length=100, blank=True, null=True)
     address = models.CharField('адрес', max_length=255, blank=True, null=True)
-    #address2 = models.CharField(max_length=255, blank=True, null=True)
     city = models.CharField('город', max_length=100, blank=True, null=True)
     region = models.CharField('регион', max_length=100, blank=True, null=True)
-    #province = models.CharField(max_length=100, blank=True, null=True)
     postal_code = models.CharField('почтовый индекс', max_length=20, blank=True, null=True)
     phone = models.CharField('телефон', max_length=150, unique=True, blank=False, null=False)
 

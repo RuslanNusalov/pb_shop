@@ -63,6 +63,11 @@ class ProductSize(models.Model):
     size = models.ForeignKey(Size, on_delete=models.CASCADE)
     stock = models.PositiveIntegerField(default=0)
 
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['product', 'size'], name='unique_product_size')
+        ]
+
     def __str__(self):
         return f"{self.size.name} ({self.stock} in stock) for {self.product.name}"
 

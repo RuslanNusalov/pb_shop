@@ -1,0 +1,48 @@
+<div class="max-w-2xl mx-auto p-6">
+  <h2 class="text-2xl font-bold mb-4">Оплатите заказ переводом</h2>
+
+  <div class="bg-gray-50 p-4 rounded-lg mb-6">
+    <p class="text-lg">Сумма: <strong>{{ amount }} ₽</strong></p>
+    <p class="mt-2">Карта: <code class="bg-white px-2 py-1 rounded">{{ card_number }}</code></p>
+    <p>Получатель: {{ card_holder }} ({{ bank_name }})</p>
+  </div>
+
+  <div class="alert alert-warning bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6">
+    <p class="font-bold">⚠️ Важно!</p>
+    <p>В комментарии к переводу обязательно укажите: <strong>{{ reference }}</strong></p>
+    <p class="text-sm text-gray-600 mt-1">Без этого кода мы не сможем автоматически найти ваш платёж.</p>
+  </div>
+
+  {% if expires_at %}
+  <p class="text-sm text-gray-500 mb-4">
+    ⏰ Срок оплаты: {{ expires_at|date:"d.m.Y H:i" }}
+  </p>
+  {% endif %}
+
+  <form hx-post="{% url 'payment:upload_proof' order.pk %}"
+        hx-target="#proof-status"
+        hx-encoding="multipart/form-data"
+        class="mb-6">
+    <label class="block text-sm font-medium mb-2">Загрузить скриншот чека (необязательно)</label>
+    <input type="file" name="proof" accept="image/*"
+           class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:border-0 file:bg-gray-100 file:hover:bg-gray-200">
+    <button type="submit" class="mt-2 px-4 py-2 bg-gray-800 text-white rounded hover:bg-gray-700">
+      Загрузить
+    </button>
+    <div id="proof-status" class="mt-2"></div>
+  </form>
+
+  <div class="flex gap-4">
+    <a href="{% url 'orders:order_detail' order.pk %}"
+       class="px-4 py-2 border border-gray-300 rounded hover:bg-gray-50">
+      Вернуться к заказу
+    </a>
+    <a href="{% url 'main:index' %}"
+       hx-get="{% url 'main:index' %}"
+       hx-target="#main-content"
+       hx-push-url="true"
+       class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+      Продолжить покупки
+    </a>
+  </div>
+</div>

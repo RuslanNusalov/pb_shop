@@ -33,3 +33,10 @@ class UpdateCartItemForm(forms.ModelForm):
             self.fields['quantity'].validators.append(
                 forms.validators.MaxValueValidator(self.instance.product_size.stock)
             )
+
+
+class PromoCodeForm(forms.Form):
+    code = forms.CharField(max_length=50, required=True)
+
+    def clean_code(self):
+        return self.cleaned_data['code'].strip().upper()

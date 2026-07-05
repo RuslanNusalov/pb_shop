@@ -56,7 +56,14 @@
                     <div class="text-red-500 text-xs mt-1">{{ form.email.errors }}</div>
                 {% endif %}
             </div>
-            
+
+            <div>
+                {{ form.phone }}
+                {% if form.phone.errors %}
+                    <div class="text-red-500 text-xs mt-1">{{ form.phone.errors }}</div>
+                {% endif %}
+            </div>
+
             <div>
                 {{ form.password1 }}
                 {% if form.password1.errors %}
@@ -70,7 +77,7 @@
                     <div class="text-red-500 text-xs mt-1">{{ form.password2.errors }}</div>
                 {% endif %}
                 <div id="passwordError" class="text-red-500 text-xs mt-1 hidden">
-                    Passwords do not match
+                    Пароли не совпадают
                 </div>
             </div>
             

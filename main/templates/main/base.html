@@ -1,13 +1,18 @@
 {% load static %}
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}ENFANTS RICHES DÉPRIMÉS{% endblock %}</title>
+    <title>{% block title %}Правый берег{% endblock %}</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
-    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <script>
+    // Авто-подстановка CSRF для всех HTMX POST-запросов
+    document.body.addEventListener('htmx:configRequest', (event) => {
+        event.detail.headers['X-CSRFToken'] = '{{ csrf_token }}';
+    });
+    </script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
         
@@ -117,8 +122,7 @@
         <div class="p-6">
             <div class="flex justify-between items-center mb-8">
                 <h2 class="text-lg font-bold tracking-tight text-left">
-                    ENFANTS RICHES <br>
-                    DÉPRIMÉS
+                    ПРАВЫЙ БЕРЕГ <br>
                 </h2>
                 <button id="closeMenu" class="hamburger active">
                     <span></span>
@@ -133,7 +137,7 @@
                    hx-target="#main-content" 
                    hx-push-url="true"
                    class="mobile-nav-link block text-lg font-medium text-gray-900 hover:text-gray-700 py-2 border-b border-gray-200">
-                   HOME
+                   ГЛАВНАЯ
                 </a>
                 {% for category in categories %}
                 <a href="{% url 'main:catalog' category.slug %}" 
@@ -147,21 +151,27 @@
             </nav>
             
             <div class="mt-8 space-y-4">
-                <a href="#" class="block text-sm font-medium text-gray-900 hover:text-gray-700 py-2">SEARCH</a>
+                <a href="{% url 'main:catalog_all' %}?show_search=true"
+                    hx-get="{% url 'main:catalog_all' %}?show_search=true"
+                    hx-target="#main-content"
+                    hx-swap="innerHTML"
+                    class="block text-sm font-medium text-gray-900 hover:text-gray-700 py-2">
+                    ПОИСК
+                </a>
                 <a href="{% url 'users:profile' %}" 
                 hx-get="{% url 'users:profile' %}" 
                 hx-target="#main-content" 
                 hx-push-url="true"
                 class="text-sm font-medium text-gray-900 uppercase hover:text-gray-600">
-                    ACCOUNT
+                    ЛИЧНЫЙ КАБИНЕТ
                 </a>
-                <a href="#" id="mobileCart" class="block text-sm font-medium text-gray-900 hover:text-gray-700 py-2">CART (0)</a>
+                <a href="#" id="mobileCart" class="block text-sm font-medium text-gray-900 hover:text-gray-700 py-2">КОРЗИНА (0)</a>
             </div>
         </div>
     </div>
 
     <!-- Header -->
-    <header class="sticky top-0">
+    <header class="sticky top-0 z-40 w-full bg-white border-b border-gray-100 shadow-sm/50">
         <div class="mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between items-center h-16">
                 <!-- Mobile Menu Button -->
@@ -178,8 +188,7 @@
                        hx-target="#main-content" 
                        hx-push-url="true">
                         <h1 class="text-sm sm:text-lg font-bold tracking-tight text-left">
-                            ENFANTS RICHES <br>
-                            DÉPRIMÉS
+                            ПРАВЫЙ БЕРЕГ <br>
                         </h1>
                     </a>
                 </div>
@@ -192,7 +201,7 @@
                        hx-target="#main-content" 
                        hx-push-url="true"
                        class="nav-link text-sm font-medium text-gray-900 hover:text-gray-700 {% if current_category == category.slug %}active{% endif %}">
-                       {{ category.name|upper }}
+                       {{ category.name | upper }}
                     </a>
                     {% endfor %}
                 </nav>
@@ -205,7 +214,7 @@
                                 hx-target="#mobile-search-wrapper" 
                                 hx-swap="innerHTML"
                                 class="text-sm font-medium uppercase hover:text-gray-600">
-                            SEARCH
+                            ПОИСК
                         </button>
                     </div>
                     <a href="{% url 'users:profile' %}" 
@@ -213,14 +222,14 @@
                     hx-target="#main-content" 
                     hx-push-url="true"
                     class="text-sm font-medium text-gray-900 uppercase hover:text-gray-600">
-                        ACCOUNT
+                        ЛИЧНЫЙ КАБИНЕТ
                     </a>
-                    <a href="#" id="desktopCart" class="text-sm font-medium text-gray-900 hover:text-gray-700">CART (0)</a>
+                    <a href="#" id="desktopCart" class="text-sm font-medium text-gray-900 hover:text-gray-700">КОРЗИНА (0)</a>
                 </div>
                 
                 <!-- Mobile Cart Icon -->
                 <div class="md:hidden">
-                    <a href="#" id="mobileCartHeader" class="text-xs font-medium text-gray-900">CART (0)</a>
+                    <a href="#" id="mobileCartHeader" class="text-xs font-medium text-gray-900">КОРЗИНА (0)</a>
                 </div>
             </div>
         </div>
@@ -237,10 +246,10 @@
         <main class="mx-auto px-4 sm:px-6 lg:px-8 py-8">
             <div class="text-center py-20">
                 <h2 class="text-4xl font-bold tracking-tight text-gray-900 mb-4">
-                    ENFANTS RICHES DÉPRIMÉS
+                    ПРАВЫЙ БЕРЕГ
                 </h2>
                 <p class="text-lg text-gray-600 mb-8">
-                    Select a category to browse our collection
+                    Выберите категорию
                 </p>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-2xl mx-auto">
                     {% for category in categories %}
@@ -249,7 +258,7 @@
                        hx-target="#main-content" 
                        hx-push-url="true"
                        class="block p-8 border border-gray-200 hover:border-gray-300 transition-colors">
-                        <h3 class="text-xl font-bold">{{ category.name|upper }}</h3>
+                        <h3 class="text-xl font-bold">{{ category.name }}</h3>
                     </a>
                     {% endfor %}
                 </div>
@@ -298,7 +307,7 @@
             updateCartCount();
             
             function updateHeaderCartCount(count) {
-                const cartText = `CART (${count})`;
+                const cartText = `КОРЗИНА (${count})`;
                 if (desktopCart) desktopCart.textContent = cartText;
                 if (mobileCart) mobileCart.textContent = cartText;
                 if (mobileCartHeader) mobileCartHeader.textContent = cartText;
@@ -341,12 +350,13 @@
             });
     
             function updateActiveNavLinks() {
-                const currentPath = window.location.pathname;
+                const currentPath = window.location.pathname.replace(/\/$/, ''); // Убираем trailing slash
                 const navLinks = document.querySelectorAll('.nav-link, .mobile-nav-link');
                 
                 navLinks.forEach(link => {
                     link.classList.remove('active');
-                    if (link.getAttribute('href') === currentPath) {
+                    const linkPath = link.getAttribute('href').replace(/\/$/, '');
+                    if (linkPath === currentPath || currentPath.startsWith(linkPath + '/')) {
                         link.classList.add('active');
                     }
                 });
@@ -354,8 +364,9 @@
             
             // Listen for cart updates
             document.addEventListener('cartUpdated', function(e) {
-                if (e.detail && e.detail.total_items !== undefined) {
-                    updateHeaderCartCount(e.detail.total_items);
+                if (e.detail && e.detail.total !== undefined) {
+                    document.querySelectorAll('.cart-count').forEach(el => el.textContent = e.detail.total);
+                    updateHeaderCartCount(e.detail.total); // Дополнительная подстраховка
                 }
             });
         });
@@ -365,12 +376,37 @@
             const desktopCart = document.getElementById('desktopCart');
             const mobileCart = document.getElementById('mobileCart');
             const mobileCartHeader = document.getElementById('mobileCartHeader');
-            const cartText = `CART (${count})`;
+            const cartText = `КОРЗИНА (${count})`;
             
             if (desktopCart) desktopCart.textContent = cartText;
             if (mobileCart) mobileCart.textContent = cartText;
             if (mobileCartHeader) mobileCartHeader.textContent = cartText;
         };
+        // ✅ Глобальная функция показа уведомлений
+        function showToast(message, type = 'success') {
+            // Удаляем старые тосты, чтобы не наслаивались
+            document.querySelectorAll('.toast-notification').forEach(el => el.remove());
+            
+            const toast = document.createElement('div');
+            const bgClass = type === 'error' ? 'bg-red-600' : 'bg-green-600';
+            const icon = type === 'error' ? '⚠️' : '✅';
+            
+            toast.className = `toast-notification fixed bottom-5 right-5 ${bgClass} text-white px-5 py-3 rounded-lg shadow-xl z-[100] flex items-center gap-2 transform transition-all duration-300 translate-y-2 opacity-0`;
+            toast.innerHTML = `<span>${icon}</span><span>${message}</span>`;
+            
+            document.body.appendChild(toast);
+            
+            // Анимация появления
+            requestAnimationFrame(() => {
+                toast.classList.remove('translate-y-2', 'opacity-0');
+            });
+            
+            // Авто-удаление через 3.5 сек
+            setTimeout(() => {
+                toast.classList.add('translate-y-2', 'opacity-0');
+                setTimeout(() => toast.remove(), 300);
+            }, 3500);
+        }
     </script>
 </body>
 </html>

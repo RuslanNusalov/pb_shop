@@ -1,3 +1,4 @@
+{% load static %}
 <main class="mx-auto px-4 sm:px-6 lg:px-8 py-8">
     <!-- Breadcrumb -->
     <div class="mb-8">
@@ -6,7 +7,7 @@
                hx-get="{% url 'main:index' %}" 
                hx-target="#main-content" 
                hx-push-url="true"
-               class="hover:text-gray-900">HOME</a>
+               class="hover:text-gray-900">Главная</a>
             <span class="mx-2">/</span>
             <a href="{% url 'main:catalog' product.category.slug %}" 
                hx-get="{% url 'main:catalog' product.category.slug %}" 
@@ -22,14 +23,15 @@
         <!-- Product Images -->
         <div class="space-y-4">
             <!-- Main Image -->
-            <div class="aspect-square overflow-hidden bg-gray-100">
+            <div class="aspect-square overflow-hidden bg-gray-100 rounded-lg">
                 {% if product.main_image %}
-                    <img src="{{ product.main_image.url }}" 
+                    <img id="main-product-image" 
+                         src="{{ product.main_image.url }}" 
                          alt="{{ product.name }}" 
-                         class="w-full h-full object-cover">
+                         class="w-full h-full object-cover transition-transform duration-300 hover:scale-105">
                 {% else %}
                     <div class="w-full h-full bg-gray-200 flex items-center justify-center">
-                        <span class="text-gray-400">No Image</span>
+                        <span class="text-gray-400 text-sm">Нет изображения</span>
                     </div>
                 {% endif %}
             </div>
@@ -38,12 +40,14 @@
             {% if product.images.all %}
             <div class="grid grid-cols-3 gap-2">
                 {% for image in product.images.all %}
-                <div class="aspect-square overflow-hidden bg-gray-100 cursor-pointer hover:opacity-80">
+                <button type="button"
+                        class="aspect-square overflow-hidden bg-gray-100 rounded-lg cursor-pointer hover:opacity-90 transition-opacity focus:outline-none focus:ring-2 focus:ring-black"
+                        onclick="document.getElementById('main-product-image').src = '{{ image.image.url }}'"
+                        aria-label="Показать изображение {{ forloop.counter }}">
                     <img src="{{ image.image.url }}" 
-                         alt="{{ product.name }}" 
-                         class="w-full h-full object-cover"
-                         onclick="changeMainImage(this.src)">
-                </div>
+                         alt="{{ product.name }} - вид {{ forloop.counter }}" 
+                         class="w-full h-full object-cover">
+                </button>
                 {% endfor %}
             </div>
             {% endif %}
@@ -56,69 +60,78 @@
                     {{ product.name|upper }}
                 </h1>
                 <p class="text-lg text-gray-600 mb-4">{{ product.color|upper }}</p>
-                <p class="text-2xl font-bold text-gray-900">${{ product.price }}</p>
+                <p class="text-2xl font-bold text-gray-900">₽{{ product.price }}</p>
             </div>
 
             <!-- Sizes -->
-            {% if product.product_sizes.all %}
             <div>
-                <h3 class="text-sm font-medium text-gray-900 mb-3">SIZE</h3>
-                <div class="grid grid-cols-4 gap-2">
-                    {% for product_size in product.product_sizes.all %}
-                    <div class="size-option">
+                <h3 class="text-sm font-medium text-gray-900 mb-3">РАЗМЕР</h3>
+                {% if product.product_sizes.exists %}
+                <div class="grid grid-cols-4 gap-2" id="size-selector">
+                    {% for ps in product.product_sizes.all %}
+                    <label for="size-{{ ps.id }}"
+                           class="size-label block border border-gray-300 rounded-lg py-2 px-3 text-sm font-medium text-center cursor-pointer 
+                                  hover:border-gray-900 hover:bg-gray-50 transition-all
+                                  {% if ps.stock == 0 %}opacity-40 cursor-not-allowed bg-gray-50{% endif %}"
+                           data-size-id="{{ ps.id }}">
                         <input type="radio" 
-                               name="size" 
-                               class="size-radio hidden"
-                               id="size-{{ product_size.id }}"
-                               value="{{ product_size.id }}"
-                               data-size="{{ product_size.size.name }}"
-                               {% if product_size.stock == 0 %}disabled{% endif %}
-                               {% if forloop.first and product_size.stock > 0 %}checked{% endif %}>
-                        <label for="size-{{ product_size.id }}"
-                               class="block border border-gray-300 py-2 px-3 text-sm font-medium text-center cursor-pointer hover:border-gray-900 transition-colors {% if product_size.stock == 0 %}opacity-50 cursor-not-allowed{% endif %}">
-                            {{ product_size.size.name }}
-                        </label>
-                    </div>
+                               name="size_id" 
+                               id="size-{{ ps.id }}"
+                               value="{{ ps.id }}"
+                               class="size-radio sr-only"
+                               {% if ps.stock == 0 %}disabled{% endif %}
+                               {% if forloop.first and ps.stock > 0 %}checked{% endif %}
+                               required>
+                        <span class="size-text">{{ ps.size.name }}</span>
+                        {% if ps.stock == 0 %}
+                            <span class="block text-[10px] mt-0.5 text-gray-400">нет</span>
+                        {% endif %}
+                    </label>
                     {% endfor %}
                 </div>
+                {% else %}
+                <p class="text-sm text-red-600 font-medium">⚠️ Нет доступных размеров</p>
+                {% endif %}
             </div>
+
+            <!-- Add to Cart - HTMX FORM -->
+            {% if product.product_sizes.exists %}
+            <form hx-post="{% url 'cart:add_to_cart' product.slug %}"
+                  hx-target="#cart-container"
+                  hx-swap="innerHTML"
+                  hx-on::before-request="onAddToCartStart(this)"
+                  hx-on::after-request="onAddToCartEnd(this)"
+                  class="space-y-4"
+                  id="add-to-cart-form">
+                {% csrf_token %}
+                <input type="hidden" name="size_id" id="selected-size-id" required>
+                <input type="hidden" name="quantity" value="1">
+                
+                <button type="submit" 
+                        id="add-to-cart-btn" 
+                        class="w-full bg-black text-white py-3 px-6 text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                        disabled>
+                    <span id="btn-text">ВЫБЕРИТЕ РАЗМЕР</span>
+                    <span id="btn-loader" class="htmx-indicator hidden">⏳</span>
+                </button>
+            </form>
             {% else %}
-            <div>
-                <h3 class="text-sm font-medium text-gray-900 mb-3">SIZE</h3>
-                <p class="text-sm text-gray-600">No sizes available</p>
-            </div>
+            <button disabled 
+                    class="w-full bg-gray-300 text-gray-500 py-3 px-6 text-sm font-medium rounded-lg cursor-not-allowed">
+                ТОВАР НЕДОСТУПЕН
+            </button>
             {% endif %}
 
-            <!-- Add to Cart -->
-            <div class="space-y-4">
-                <button id="add-to-cart-btn" 
-                        class="w-full bg-black text-white py-3 px-6 text-sm font-medium hover:bg-gray-800 transition-colors"
-                        onclick="addToCart()"
-                        {% if not product.product_sizes.all %}disabled{% endif %}>
-                    ADD TO CART
-                </button>
-                
-                <button class="w-full border border-gray-300 py-3 px-6 text-sm font-medium hover:border-gray-900 transition-colors">
-                    ADD TO WISHLIST
-                </button>
-            </div>
+            <!-- Wishlist -->
+            <button class="w-full border border-gray-300 rounded-lg py-3 px-6 text-sm font-medium hover:border-gray-900 hover:bg-gray-50 transition-colors">
+                ♡ В СПИСОК ЖЕЛАНИЙ
+            </button>
 
             <!-- Product Details -->
             <div class="border-t border-gray-200 pt-6">
-                <h3 class="text-sm font-medium text-gray-900 mb-3">DETAILS</h3>
+                <h3 class="text-sm font-medium text-gray-900 mb-3">ДЕТАЛИ</h3>
                 <div class="prose prose-sm text-gray-600">
                     <p>{{ product.description|linebreaks }}</p>
-                    <p>Created: {{ product.created_at|date:"F d, Y" }}</p>
-                </div>
-            </div>
-
-            <!-- Care Instructions -->
-            <div class="border-t border-gray-200 pt-6">
-                <h3 class="text-sm font-medium text-gray-900 mb-3">CARE</h3>
-                <div class="prose prose-sm text-gray-600">
-                    <p>Professional dry clean only</p>
-                    <p>Do not bleach</p>
-                    <p>Iron at low temperature</p>
                 </div>
             </div>
         </div>
@@ -127,28 +140,28 @@
     <!-- Related Products -->
     {% if related_products %}
     <div class="mt-16 border-t border-gray-200 pt-16">
-        <h2 class="text-xl font-bold tracking-tight text-gray-900 mb-8">YOU MAY ALSO LIKE</h2>
+        <h2 class="text-xl font-bold tracking-tight text-gray-900 mb-8">ВАМ ТАКЖЕ МОГУТ ПОНРАВИТЬСЯ</h2>
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {% for related_product in related_products %}
+            {% for rp in related_products %}
             <div class="product-card group cursor-pointer" 
-                 hx-get="{% url 'main:product_detail' related_product.slug %}"
+                 hx-get="{% url 'main:product_detail' rp.slug %}"
                  hx-target="#main-content"
                  hx-push-url="true">
-                <div class="aspect-square overflow-hidden bg-gray-100 mb-4">
-                    {% if related_product.main_image %}
-                        <img src="{{ related_product.main_image.url }}" 
-                             alt="{{ related_product.name }}" 
-                             class="product-image w-full h-full object-cover">
+                <div class="aspect-square overflow-hidden bg-gray-100 rounded-lg mb-4">
+                    {% if rp.main_image %}
+                        <img src="{{ rp.main_image.url }}" 
+                             alt="{{ rp.name }}" 
+                             class="product-image w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
                     {% else %}
-                        <div class="product-image w-full h-full bg-gray-200 flex items-center justify-center">
-                            <span class="text-gray-400 text-sm">No Image</span>
+                        <div class="bg-gray-200 flex items-center justify-center h-full">
+                            <span class="text-gray-400 text-sm">Нет фото</span>
                         </div>
                     {% endif %}
                 </div>
                 <div class="text-center">
-                    <h3 class="text-sm font-medium text-gray-900 mb-1">{{ related_product.name|upper }}</h3>
-                    <p class="text-sm text-gray-600 mb-1">{{ related_product.color|upper }}</p>
-                    <p class="text-sm font-medium">${{ related_product.price }}</p>
+                    <h3 class="text-sm font-medium text-gray-900 mb-1">{{ rp.name|upper }}</h3>
+                    <p class="text-sm text-gray-600 mb-1">{{ rp.color|upper }}</p>
+                    <p class="text-sm font-medium">₽{{ rp.price }}</p>
                 </div>
             </div>
             {% endfor %}
@@ -158,180 +171,132 @@
 </main>
 
 <style>
-    .size-radio:checked + label {
-        background-color: black !important;
-        color: white !important;
-        border-color: black !important;
+    /* Скрываем радио-кнопки визуально, но оставляем доступными для клавиатуры */
+    .size-radio {
+        position: absolute;
+        opacity: 0;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
     }
-    .size-radio:disabled + label {
-        opacity: 0.5;
+
+    /* Выбранный размер — чёрный фон, белый текст */
+    .size-label.selected {
+        background-color: #000 !important;
+        color: #fff !important;
+        border-color: #000 !important;
+    }
+
+    /* Недоступный размер */
+    .size-label:has(.size-radio:disabled) {
+        opacity: 0.4;
         cursor: not-allowed;
+        background-color: #f9fafb;
     }
 </style>
 
 <script>
-    let selectedSize = null;
-    let selectedSizeId = null;
+// === Глобальная функция инициализации (можно вызывать многократно) ===
+function initProductDetail() {
+    const sizeLabels = document.querySelectorAll('.size-label');
+    const sizeRadios = document.querySelectorAll('input[name="size_id"]');
+    const addToCartBtn = document.getElementById('add-to-cart-btn');
+    const btnText = document.getElementById('btn-text');
+    const sizeInput = document.getElementById('selected-size-id');
 
-    function changeMainImage(src) {
-        const mainImg = document.querySelector('.aspect-square img');
-        if (mainImg) {
-            mainImg.src = src;
-        }
-    }
+    // Если элементов нет на этой странице — выходим
+    if (!addToCartBtn || !sizeInput || sizeRadios.length === 0) return;
 
-    function updateSelectedSize() {
-        const sizeRadios = document.querySelectorAll('.size-radio');
-        const checkedRadio = Array.from(sizeRadios).find(radio => radio.checked && !radio.disabled);
-        if (checkedRadio) {
-            selectedSize = checkedRadio.dataset.size;
-            selectedSizeId = checkedRadio.value;
-            console.log('Updated Selected Size:', selectedSize, 'ID:', selectedSizeId);
-        } else {
-            selectedSize = null;
-            selectedSizeId = null;
-            console.log('No valid size selected');
-        }
-    }
-
-    function addToCart() {
-        const productSlug = '{{ product.slug }}';
-        console.log('Product Slug:', productSlug);
+    // Функция активации кнопки
+    function activateButton(radio) {
+        if (!radio || radio.disabled) return;
         
-        // Update selected size before sending
-        updateSelectedSize();
-        console.log('Selected Size ID:', selectedSizeId);
-
-        if (!selectedSizeId) {
-            showNotification('Please select a size');
-            return;
-        }
-
-        let formData = new FormData();
-        formData.append('size_id', selectedSizeId);
-        formData.append('quantity', '1');
-        fetch(`{% url 'cart:add_to_cart' 'PLACEHOLDER' %}`.replace('PLACEHOLDER', productSlug), {
-            method: 'POST',
-            body: formData,
-            headers: {
-                'X-CSRFToken': getCookie('csrftoken')
-            }
-        })
-        .then(response => {
-            console.log('Response Status:', response.status);
-            return response.json();
-        })
-        .then(data => {
-            console.log('Response Data:', data);
-            if (data.error) {
-                showNotification(data.error);
-            } else {
-                updateHeaderCartCount(data.total_items);
-                showNotification(data.message);
-                htmx.ajax('GET', '{% url "cart:cart_modal" %}', {
-                    target: '#cart-container',
-                    swap: 'innerHTML'
-                });
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            showNotification('Error adding to cart');
-        });
-    }
-    
-    function getCookie(name) {
-        let cookieValue = null;
-        if (document.cookie && document.cookie !== '') {
-            const cookies = document.cookie.split(';');
-            for (let i = 0; i < cookies.length; i++) {
-                const cookie = cookies[i].trim();
-                if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                    break;
-                }
-            }
-        }
-        return cookieValue;
-    }
-    
-    function showNotification(message) {
-        const notification = document.createElement('div');
-        notification.className = 'fixed top-20 right-4 bg-black text-white px-6 py-3 rounded shadow-lg z-50 transform translate-x-full transition-transform duration-300';
-        notification.textContent = message;
-        document.body.appendChild(notification);
-        setTimeout(() => {
-            notification.style.transform = 'translateX(0)';
-        }, 10);
-        setTimeout(() => {
-            notification.style.transform = 'translateX(100%)';
-            setTimeout(() => {
-                notification.remove();
-            }, 300);
-        }, 3000);
+        sizeInput.value = radio.value;
+        addToCartBtn.disabled = false;
+        btnText.textContent = 'ДОБАВИТЬ В КОРЗИНУ';
+        
+        sizeLabels.forEach(l => l.classList.remove('selected'));
+        radio.closest('.size-label')?.classList.add('selected');
     }
 
-    function initializeSizeRadios() {
-        const sizeRadios = document.querySelectorAll('.size-radio');
-        const addToCartBtn = document.getElementById('add-to-cart-btn');
-        console.log('Size Radios Found:', sizeRadios.length);
-
-        if (sizeRadios.length === 0) {
-            console.log('No size radios available');
-            addToCartBtn.disabled = true;
-            addToCartBtn.classList.add('opacity-50', 'cursor-not-allowed');
-            showNotification('No sizes available');
-            return;
-        }
-
-        const availableRadios = Array.from(sizeRadios).filter(radio => !radio.disabled);
-        console.log('Available Size Radios:', availableRadios.length);
-
-        if (availableRadios.length === 0) {
-            console.log('All sizes are out of stock');
-            addToCartBtn.disabled = true;
-            addToCartBtn.classList.add('opacity-50', 'cursor-not-allowed');
-            showNotification('All sizes are out of stock');
-            return;
-        }
-
-        // Ensure at least one valid radio is checked
-        let checkedRadio = Array.from(sizeRadios).find(radio => radio.checked && !radio.disabled);
-        if (!checkedRadio && availableRadios.length > 0) {
-            availableRadios[0].checked = true;
-            checkedRadio = availableRadios[0];
-            console.log('Auto-checked first available radio:', checkedRadio.dataset.size, 'ID:', checkedRadio.value);
-        }
-
-        // Update selected size
-        updateSelectedSize();
-
-        // Add event listeners
-        sizeRadios.forEach(radio => {
-            radio.addEventListener('change', function(e) {
-                if (this.disabled) {
-                    console.log('Changed disabled radio:', this.dataset.size);
+    // Обработчики (вешаем только если ещё не навешаны)
+    if (!addToCartBtn.dataset.handlersAttached) {
+        sizeLabels.forEach(label => {
+            label.addEventListener('click', function(e) {
+                const radio = this.querySelector('input[name="size_id"]');
+                if (!radio || radio.disabled) {
+                    e.preventDefault();
                     return;
                 }
-                console.log('Radio Changed - Selected Size:', this.dataset.size, 'ID:', this.value);
-                updateSelectedSize();
-                addToCartBtn.disabled = false;
-                addToCartBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                radio.checked = true;
+                activateButton(radio);
             });
         });
+
+        sizeRadios.forEach(radio => {
+            radio.addEventListener('change', function() {
+                if (!this.disabled) activateButton(this);
+            });
+        });
+        
+        // Помечаем, что обработчики уже навешаны (защита от дублирования)
+        addToCartBtn.dataset.handlersAttached = 'true';
     }
 
-    document.addEventListener('DOMContentLoaded', initializeSizeRadios);
-    document.addEventListener('htmx:afterSwap', initializeSizeRadios);
+    // 🔥 Инициализация: авто-выбор первого доступного размера
+    const firstAvailable = document.querySelector('input[name="size_id"]:not(:disabled)');
+    if (firstAvailable && !document.querySelector('input[name="size_id"]:checked')) {
+        firstAvailable.checked = true;
+    }
+    
+    // Синхронизируем кнопку с текущим состоянием
+    const checked = document.querySelector('input[name="size_id"]:checked:not(:disabled)');
+    if (checked) {
+        activateButton(checked);
+    }
+}
 
-    const productCards = document.querySelectorAll('.product-card');
-    productCards.forEach(card => {
-        card.addEventListener('mouseenter', function() {
-            this.style.transform = 'translateY(-2px)';
-            this.style.transition = 'transform 0.3s ease';
-        });
-        card.addEventListener('mouseleave', function() {
-            this.style.transform = 'translateY(0)';
-        });
-    });
+// === Запускаем инициализацию при: ===
+// 1. Первой загрузке страницы
+document.addEventListener('DOMContentLoaded', initProductDetail);
+
+// 2. Каждой HTMX-подгрузке контента (критично!)
+document.addEventListener('htmx:load', initProductDetail);
+
+// === HTMX обработчики (глобальные, вешаются один раз) ===
+function onAddToCartStart(form) {
+    const btn = document.getElementById('add-to-cart-btn');
+    const text = document.getElementById('btn-text');
+    const loader = document.getElementById('btn-loader');
+    if (btn) btn.disabled = true;
+    if (text) text.textContent = 'ДОБАВЛЯЕМ...';
+    if (loader) loader.classList.remove('hidden');
+}
+
+function onAddToCartEnd(form) {
+    const btn = document.getElementById('add-to-cart-btn');
+    const text = document.getElementById('btn-text');
+    const loader = document.getElementById('btn-loader');
+    if (btn) btn.disabled = false;
+    if (text) text.textContent = 'ДОБАВИТЬ В КОРЗИНУ';
+    if (loader) loader.classList.add('hidden');
+}
+
+// Слушатели уведомлений
+document.addEventListener('showToast', e => {
+    if (typeof showToast === 'function') {
+        const {message, type} = e.detail;
+        showToast(message, type);
+    }
+});
+document.addEventListener('cartUpdated', e => {
+    if (e.detail?.total !== undefined && typeof updateHeaderCartCount === 'function') {
+        updateHeaderCartCount(e.detail.total);
+    }
+});
 </script>

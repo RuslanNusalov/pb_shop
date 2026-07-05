@@ -1,0 +1,272 @@
+{% load static %}
+
+<main class="mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div class="max-w-7xl mx-auto">
+        <div class="grid lg:grid-cols-2 gap-12">
+            <!-- Left Column - Checkout Form -->
+            <div class="space-y-8">
+                <!-- Breadcrumb -->
+                <div class="text-center lg:text-left">
+                    <nav class="flex items-center space-x-2 text-sm text-gray-600">
+                        <a href="{% url 'main:index' %}" 
+                           hx-get="{% url 'main:index' %}" 
+                           hx-target="#main-content" 
+                           hx-push-url="true"
+                           class="hover:text-gray-900">ГЛАВНАЯ</a>
+                        <span class="mx-2">/</span>
+                        <span class="font-medium">ОФОРМЛЕНИЕ ЗАКАЗА</span>
+                    </nav>
+                </div>
+
+                <!-- Contact Information -->
+                <div class="bg-white p-6">
+                    <h2 class="text-lg font-bold text-black mb-4">Контактная информация</h2>
+                    
+                    <form method="post" id="order-form" hx-post="{% url 'orders:checkout' %}" hx-target="#main-content" hx-swap="outerHTML">
+                        {% csrf_token %}
+                        <div class="bg-white p-6">
+                            <div class="space-y-4">
+                                <div>
+                                    <label for="{{ form.email.id_for_label }}" class="block text-sm font-medium text-black mb-1">Эл. почта</label>
+                                    {{ form.email }}
+                                    {% if form.email.errors %}
+                                        <div class="text-red-500 text-sm mt-1">{{ form.email.errors }}</div>
+                                    {% endif %}
+                                </div>
+                                <label class="flex items-center space-x-2 cursor-pointer">
+                                    <input type="checkbox" name="newsletter" class="h-4 w-4 text-black border-black focus:ring-0">
+                                    <span class="text-sm text-black">Присылать новости и предложения</span>
+                                </label>
+                            </div>
+                        </div>
+                    
+                        <!-- Shipping Address -->
+                        <div class="bg-white p-6">
+                            <h2 class="text-lg font-bold text-black mb-4">Адрес доставки</h2>
+                            <div class="space-y-4">
+                                <div>
+                                    <label for="{{ form.region.id_for_label }}" class="block text-sm font-medium text-black mb-1">Регион</label>
+                                    {{ form.region }}
+                                    {% if form.region.errors %}
+                                        <div class="text-red-500 text-sm mt-1">{{ form.region.errors }}</div>
+                                    {% endif %}
+                                </div>
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label for="{{ form.first_name.id_for_label }}" class="block text-sm font-medium text-black mb-1">Имя</label>
+                                        {{ form.first_name }}
+                                        {% if form.first_name.errors %}
+                                            <div class="text-red-500 text-sm mt-1">{{ form.first_name.errors }}</div>
+                                        {% endif %}
+                                    </div>
+                                    <div>
+                                        <label for="{{ form.last_name.id_for_label }}" class="block text-sm font-medium text-black mb-1">Фамилия</label>
+                                        {{ form.last_name }}
+                                        {% if form.last_name.errors %}
+                                            <div class="text-red-500 text-sm mt-1">{{ form.last_name.errors }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div class="relative">
+                                    <label for="{{ form.address.id_for_label }}" class="block text-sm font-medium text-black mb-1">Адрес</label>
+                                    {{ form.address }}
+                                    {% if form.address.errors %}
+                                        <div class="text-red-500 text-sm mt-1">{{ form.address.errors }}</div>
+                                    {% endif %}
+                                    <div class="absolute right-3 top-10 transform -translate-y-1/2">
+                                        <svg class="w-4 h-4 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                                        </svg>
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-3 gap-4">
+                                    <div>
+                                        <label for="{{ form.city.id_for_label }}" class="block text-sm font-medium text-black mb-1">Город</label>
+                                        {{ form.city }}
+                                        {% if form.city.errors %}
+                                            <div class="text-red-500 text-sm mt-1">{{ form.city.errors }}</div>
+                                        {% endif %}
+                                    </div>
+                                    <div>
+                                        <label for="{{ form.postal_code.id_for_label }}" class="block text-sm font-medium text-black mb-1">Индекс</label>
+                                        {{ form.postal_code }}
+                                        {% if form.postal_code.errors %}
+                                            <div class="text-red-500 text-sm mt-1">{{ form.postal_code.errors }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div class="relative">
+                                    <label for="{{ form.phone.id_for_label }}" class="block text-sm font-medium text-black mb-1">Телефон</label>
+                                    {{ form.phone }}
+                                    {% if form.phone.errors %}
+                                        <div class="text-red-500 text-sm mt-1">{{ form.phone.errors }}</div>
+                                    {% endif %}
+                                    <div class="absolute right-3 top-10 transform -translate-y-1/2">
+                                        <svg class="w-4 h-4 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                        </svg>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label for="{{ form.special_instructions.id_for_label }}" class="block text-sm font-medium text-black mb-1">Комментарий к заказу</label>
+                                    {{ form.special_instructions }}
+                                    {% if form.special_instructions.errors %}
+                                        <div class="text-red-500 text-sm mt-1">{{ form.special_instructions.errors }}</div>
+                                    {% endif %}
+                                </div>
+                                <div class="space-y-3">
+                                    <label class="flex items-center space-x-2 cursor-pointer">
+                                        <input type="checkbox" name="save_info" class="h-4 w-4 text-black border-black focus:ring-0">
+                                        <span class="text-sm text-black">Сохраните информацию для следующего раза</span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    
+                        <!-- 💳 Payment Method: Manual Transfer -->
+                        <div class="bg-white p-6 border-l-4 border-gray-800">
+                            <h2 class="text-lg font-bold text-black mb-4">Способ оплаты</h2>
+                            
+                            <div class="bg-gray-50 p-4 rounded-lg mb-4">
+                                <div class="flex items-start space-x-3">
+                                    <svg class="w-5 h-5 text-gray-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path>
+                                    </svg>
+                                    <div>
+                                        <p class="font-medium text-black">Банковский перевод (вручную)</p>
+                                        <p class="text-sm text-gray-600 mt-1">
+                                            После оформления заказа вы увидите реквизиты карты и уникальный код для комментария. 
+                                            Переведите сумму в своём банковском приложении — мы подтвердим оплату вручную в течение 24 часов.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="text-xs text-gray-500 space-y-1">
+                                <p>✓ Безопасно: данные карты не хранятся на сайте</p>
+                                <p>✓ Поддержка: поможем с любым вопросом по оплате</p>
+                                <p>✓ Гарантия: товар резервируется на 24 часа</p>
+                            </div>
+                        </div>
+                    
+                        <!-- ✅ Single Place Order Button -->
+                        <button type="submit" 
+                                form="order-form"
+                                class="w-full bg-black text-white py-4 px-6 font-bold hover:bg-gray-800 transition-colors flex items-center justify-center space-x-2">
+                            <span>Оформить</span>
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path>
+                            </svg>
+                        </button>
+
+                        <!-- Error Message Display -->
+                        {% if error_message %}
+                        <div class="bg-red-50 border-l-4 border-red-500 p-4">
+                            <p class="text-sm text-red-700">{{ error_message }}</p>
+                        </div>
+                        {% endif %}
+                    </form>
+
+                <!-- Refund Policy -->
+                {% comment %} <div class="text-center">
+                    <a href="#" class="text-sm text-gray-600 underline hover:text-gray-800">Политика возврата</a>
+                </div> {% endcomment %}
+            </div>
+        </div>
+
+        <!-- Right Column - Order Summary -->
+        <div class="bg-white p-6 rounded-lg shadow-sm h-fit sticky top-24">
+            <!-- Cart Items -->
+            <div class="space-y-4 mb-6">
+                {% for item in cart_items %}
+                    <div class="flex items-center space-x-4">
+                        <div class="relative">
+                            <img src="{{ item.product.main_image.url }}" alt="{{ item.product.name }}" class="w-16 h-16 object-cover rounded bg-gray-100">
+                            <span class="absolute -top-2 -right-2 bg-gray-800 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">{{ item.quantity }}</span>
+                        </div>
+                        <div class="flex-1">
+                            <h3 class="font-medium text-sm">{{ item.product.name }}</h3>
+                            <p class="text-xs text-gray-600">{{ item.product_size.size.name }}</p>
+                        </div>
+                        <div class="text-right">
+                            <span class="font-medium">₽{{ item.product.price|floatformat:2 }}</span>
+                        </div>
+                    </div>
+                {% empty %}
+                <p class="text-gray-500 text-center py-4">Корзина пуста</p>
+                {% endfor %}
+            </div>
+
+            <!-- Order Summary -->
+            <div id="order-summary" class="space-y-3 border-t pt-4">
+                <div class="flex justify-between text-sm">
+                    <span>Итого</span>
+                    <span>₽{{ total|floatformat:2 }}</span>
+                </div>
+                
+                <div class="flex justify-between text-sm">
+                    <span>Доставка</span>
+                    <span class="text-gray-600">Рассчитывается после подтверждения оплаты</span>
+                </div>
+                
+                <div class="flex justify-between text-lg font-medium pt-3 border-t">
+                    <span>Всего</span>
+                    <div class="text-right">
+                        <span class="text-sm text-gray-600">РУБ </span>
+                        <span>{{ total|floatformat:2 }}</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 💳 Manual Payment Info Box -->
+            <div class="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                <p class="text-xs text-gray-600">
+                    <strong>Как работает оплата:</strong><br>
+                    1. Нажмите «Оформить заказ»<br>
+                    2. Скопируйте данные карты и уникальный код<br>
+                    3. Оплатите через свое банковское приложение<br>
+                    4. Мы подтвердим в течении 24 часов и отправим товар 📦
+                </p>
+            </div>
+        </div>
+    </div>
+</main>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const form = document.getElementById('order-form');
+
+        form.addEventListener('submit', function(e) {
+            console.log('Form submitting for manual payment');
+
+            // Проверка обязательных полей
+            const requiredFields = ['email', 'first_name', 'last_name', 'address', 'city', 'region', 'phone'];
+            let isValid = true;
+
+            requiredFields.forEach(fieldName => {
+                const field = document.querySelector(`[name="${fieldName}"]`);
+                if (field && !field.value.trim()) {
+                    console.error(`Required field ${fieldName} is empty`);
+                    isValid = false;
+                }
+            });
+
+            if (!isValid) {
+                e.preventDefault();
+                alert('Пожалуйста, заполните все обязательные поля');
+                return false;
+            }
+        });
+
+        form.addEventListener('htmx:beforeRequest', function(e) {
+            console.log('HTMX request starting for manual checkout');
+        });
+
+        // Обработка успешного ответа (редирект на инструкции)
+        document.addEventListener('htmx:afterRequest', function(e) {
+            if (e.detail.xhr.status === 200 && e.detail.xhr.getResponseHeader('HX-Redirect')) {
+                console.log('Redirecting to payment instructions');
+            }
+        });
+    });
+</script>
