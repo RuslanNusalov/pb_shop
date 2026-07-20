@@ -51,6 +51,7 @@ INSTALLED_APPS = [
     'users',
     'orders',
     'payment',
+    'wishlist',
 ]
 
 MIDDLEWARE = [
@@ -74,11 +75,13 @@ TEMPLATES = [
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
+                'django.template.context_processors.debug',
                 'django.template.context_processors.request',
+                'django.template.context_processors.csrf',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
-
                 'cart.context_processors.cart_processor',
+                'main.context_processors.global_wishlist_count',
             ],
         },
     },
@@ -140,7 +143,7 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'static')
 
 MEDIA_URL = '/media/'
@@ -153,4 +156,7 @@ SESSION_SAVE_EVERY_REQUEST = True
 
 AUTH_USER_MODEL = 'users.CustomUser'
 LOGIN_URL = '/users/login/'
-LOGIN_REDIRECT_URL = '/'
+LOGIN_REDIRECT_URL = 'users:profile'  # После входа перенаправлять в профиль
+LOGOUT_REDIRECT_URL = 'main:index'    # После выхода — на главную
+HANDLER404 = 'django.views.defaults.page_not_found'
+APPEND_SLASH = True

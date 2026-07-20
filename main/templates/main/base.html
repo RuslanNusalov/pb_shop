@@ -4,15 +4,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token }}">
     <title>{% block title %}Правый берег{% endblock %}</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
-    <script>
+    {% comment %} <script>
     // Авто-подстановка CSRF для всех HTMX POST-запросов
     document.body.addEventListener('htmx:configRequest', (event) => {
         event.detail.headers['X-CSRFToken'] = '{{ csrf_token }}';
     });
-    </script>
+    </script> {% endcomment %}
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
         
@@ -165,6 +166,15 @@
                 class="text-sm font-medium text-gray-900 uppercase hover:text-gray-600">
                     ЛИЧНЫЙ КАБИНЕТ
                 </a>
+                <!-- ❤️ ИЗБРАННОЕ (Mobile) -->
+                <a href="{% url 'wishlist:list' %}" 
+                hx-get="{% url 'wishlist:list' %}" 
+                hx-target="#main-content" 
+                hx-push-url="true"
+                id="wishlist-link-mobile"
+                class="block text-sm font-medium text-gray-900 hover:text-gray-700 py-2">
+                    ИЗБРАННОE (<span class="wishlist-count-mobile">{{ wishlist_count|default:0 }}</span>)
+                </a>
                 <a href="#" id="mobileCart" class="block text-sm font-medium text-gray-900 hover:text-gray-700 py-2">КОРЗИНА (0)</a>
             </div>
         </div>
@@ -184,9 +194,9 @@
                 <!-- Logo -->
                 <div class="flex-shrink-0">
                     <a href="{% url 'main:index' %}" 
-                       hx-get="{% url 'main:index' %}" 
+                       {% comment %} hx-get="{% url 'main:index' %}" 
                        hx-target="#main-content" 
-                       hx-push-url="true">
+                       hx-push-url="true"> {% endcomment %}
                         <h1 class="text-sm sm:text-lg font-bold tracking-tight text-left">
                             ПРАВЫЙ БЕРЕГ <br>
                         </h1>
@@ -218,11 +228,20 @@
                         </button>
                     </div>
                     <a href="{% url 'users:profile' %}" 
-                    hx-get="{% url 'users:profile' %}" 
+                    {% comment %} hx-get="{% url 'users:profile' %}" 
                     hx-target="#main-content" 
-                    hx-push-url="true"
+                    hx-push-url="true" {% endcomment %}
                     class="text-sm font-medium text-gray-900 uppercase hover:text-gray-600">
                         ЛИЧНЫЙ КАБИНЕТ
+                    </a>
+                    <!-- ❤️ ИЗБРАННОЕ (Desktop) -->
+                    <a href="{% url 'wishlist:list' %}" 
+                    {% comment %} hx-get="{% url 'wishlist:list' %}" 
+                    hx-target="#main-content" 
+                    hx-push-url="true"
+                    id="wishlist-link-desktop" {% endcomment %}
+                    class="text-sm font-medium text-gray-900 hover:text-gray-600 relative">
+                        ИЗБРАННОE (<span id="wishlist-count">{{ wishlist_count }}</span>)
                     </a>
                     <a href="#" id="desktopCart" class="text-sm font-medium text-gray-900 hover:text-gray-700">КОРЗИНА (0)</a>
                 </div>
@@ -238,12 +257,11 @@
 
     <!-- Loading Indicator -->
     <div class="htmx-indicator fixed top-0 left-0 w-full h-1 bg-black z-50"></div>
-
     <!-- Main Content -->
     <div id="main-content">
-        {% block content %}
+        {% block content %} 
         <!-- Default home content -->
-        <main class="mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {% comment %} <main class="mx-auto px-4 sm:px-6 lg:px-8 py-8">
             <div class="text-center py-20">
                 <h2 class="text-4xl font-bold tracking-tight text-gray-900 mb-4">
                     ПРАВЫЙ БЕРЕГ
@@ -263,10 +281,9 @@
                     {% endfor %}
                 </div>
             </div>
-        </main>
+        </main> {% endcomment %}
         {% endblock %}
     </div>
-
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             // Mobile menu functionality
@@ -362,13 +379,36 @@
                 });
             }
             
-            // Listen for cart updates
-            document.addEventListener('cartUpdated', function(e) {
-                if (e.detail && e.detail.total !== undefined) {
-                    document.querySelectorAll('.cart-count').forEach(el => el.textContent = e.detail.total);
-                    updateHeaderCartCount(e.detail.total); // Дополнительная подстраховка
+        // Listen for cart updates
+        document.addEventListener('cartUpdated', function(e) {
+            if (e.detail && e.detail.total !== undefined) {
+                document.querySelectorAll('.cart-count').forEach(el => el.textContent = e.detail.total);
+                updateHeaderCartCount(e.detail.total); // Дополнительная подстраховка
+            }
+        });
+        // === Слушатель обновления избранного (HTMX) ===
+        document.addEventListener('wishlistUpdated', function(e) {
+            if (e.detail?.count === undefined) return;
+            
+            const count = e.detail.count;
+            
+            // Обновляем все элементы со счётчиком
+            document.querySelectorAll('#wishlist-count, .wishlist-count-mobile').forEach(el => {
+                if (el) el.textContent = count;
+            });
+            
+            // Обновляем текст ссылок (если нужно)
+            ['wishlist-link-desktop', 'wishlist-link-mobile'].forEach(id => {
+                const link = document.getElementById(id);
+                if (link) {
+                const text = link.textContent;
+                // Безопасное извлечение префикса
+                const match = text.match(/^([^(]+)\(/);
+                const prefix = match ? match[1].trim() : 'ИЗБРАННОЕ';
+                link.textContent = `${prefix} (${count})`;
                 }
             });
+        });
         });
         
         // Global function to update cart count
@@ -408,5 +448,81 @@
             }, 3500);
         }
     </script>
+    <script>
+        document.body.addEventListener('htmx:configRequest', (event) => {
+            const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+            if (token) {
+                event.detail.headers['X-CSRFToken'] = token;
+            }
+        });
+    </script>
+    <!-- Footer -->
+    <footer class="bg-black text-white pt-12 pb-8 mt-auto">
+        <div class="container mx-auto px-4">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-10 mb-8">
+                
+                <!-- Левая колонка: Адреса -->
+                <div class="space-y-6 text-sm text-gray-400">
+                    <div>
+                        <h4 class="font-bold text-white mb-2 tracking-wider">САНКТ-ПЕТЕРБУРГ</h4>
+                        <p>ШЛИССЕЛЬБУРГСКИЙ ПРОСПЕКТ, 12</p>
+                        <a href="tel:+79626940047" class="block hover:text-gray-300 transition-colors font-medium">+7 (962) 694-00-47</a>
+                        <a href="mailto:SPBSHIELD@INBOX.RU" class="block hover:text-gray-300 transition-colors">SPBSHIELD@INBOX.RU</a>
+                    </div>
+                    {% comment %} <p>ПН-ВС: С 12:00 ДО 21:00</p> {% endcomment %}
+                </div>
+
+                <!-- Центральная колонка: Лого + Соцсети -->
+                <div class="flex flex-col items-center justify-center text-center space-y-4">
+                    <!-- Щит-лого (SVG) -->
+                    {% comment %} <svg class="w-10 h-10 text-white mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                    </svg> {% endcomment %}
+                    
+                    <!-- Иконки соцсетей -->
+                    <div class="flex gap-4">
+                        <a href="https://t.me/pb_wear" target="_blank" class="text-gray-400 hover:text-white transition-colors">
+                            <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.74-.55 2.92-1.27 4.86-2.11 5.83-2.51 2.78-1.16 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .38z"/></svg>
+                        </a>
+                        <a href="https://www.youtube.com/@zadviguhy" target="_blank" class="text-gray-400 hover:text-white transition-colors">
+                            <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z"/></svg>
+                        </a>
+                        <a href="https://vk.com/pravber_spb" target="_blank" class="text-gray-400 hover:text-white transition-colors">
+                            <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M15.684 0H8.316C1.592 0 0 1.592 0 8.316v7.368C0 22.408 1.592 24 8.316 24h7.368C22.408 24 24 22.408 24 15.684V8.316C24 1.592 22.408 0 15.684 0zm3.692 17.123h-1.744c-.66 0-.862-.525-2.049-1.714-1.033-1.033-1.49-1.135-1.744-1.135-.356 0-.458.102-.458.593v1.575c0 .424-.135.678-1.253.678-1.846 0-3.896-1.12-5.316-3.202-2.146-3.008-2.74-4.97-2.74-5.395 0-.254.102-.491.593-.491h1.744c.44 0 .61.203.78.678.847 2.49 2.27 4.675 2.862 4.675.22 0 .322-.102.322-.66V9.721c-.068-1.186-.695-1.287-.695-1.71 0-.204.17-.407.44-.407h2.744c.373 0 .508.203.508.643v3.473c0 .372.17.508.271.508.22 0 .407-.136.814-.542 1.27-1.405 2.17-3.557 2.17-3.557.119-.254.305-.491.745-.491h1.744c.525 0 .644.27.525.643-.22 1.017-2.354 4.031-2.354 4.031-.186.305-.254.44 0 .78.186.254.796.779 1.203 1.253.745.847 1.32 1.558 1.473 2.049.17.475-.085.717-.576.717z"/></svg>
+                        </a>
+                    </div>
+                    
+                    <p class="text-xs text-gray-500 tracking-wide">© ПРАВЫЙ БЕРЕГ 2026. ВСЕ ПРАВА ЗАЩИЩЕНЫ.</p>
+                    <a href="#" class="text-xs text-gray-500 hover:text-white transition-colors tracking-wide">ПОЛИТИКА КОНФИДЕНЦИАЛЬНОСТИ</a>
+                </div>
+
+                <!-- Правая колонка: Ссылки + Контакты -->
+                {% comment %} <div class="space-y-6 text-sm text-right md:text-right">
+                    <div class="space-y-2">
+                        <a href="tel:+79626940047" class="block hover:text-gray-300 transition-colors font-medium">+7 (962) 694-00-47</a>
+                        <a href="mailto:SPBSHIELD@INBOX.RU" class="block hover:text-gray-300 transition-colors">SPBSHIELD@INBOX.RU</a>
+                        <a href="#" class="block hover:text-gray-300 transition-colors tracking-wide">ДОСТАВКА</a>
+                        <a href="#" class="block hover:text-gray-300 transition-colors tracking-wide">ОПЛАТА</a> 
+                        <a href="#" class="block hover:text-gray-300 transition-colors tracking-wide">ОБМЕН И ВОЗВРАТ</a>
+                    </div>
+                </div> {% endcomment %}
+                <div class="space-y-4 text-sm text-right md:text-right">
+                    <a href="https://www.ozon.ru/brand/pravyy-bereg-100261208/" target="_blank" rel="noopener noreferrer" 
+                    class="block font-bold tracking-wider hover:text-blue-400 transition-colors uppercase">
+                    Купить на Ozon 
+                    </a>
+                    <a href="https://www.wildberries.ru/brands/praviy-bereg/" target="_blank" rel="noopener noreferrer" 
+                    class="block font-bold tracking-wider hover:text-purple-400 transition-colors uppercase">
+                    Купить на Wildberries
+                    </a>
+                </div>
+            </div>
+            
+            <!-- Нижняя полоса (опционально) -->
+            <div class="border-t border-gray-800 pt-6 text-center text-xs text-gray-600">
+                Дизайн и разработка: NRT.Digital
+            </div>
+        </div>
+    </footer>
 </body>
 </html>

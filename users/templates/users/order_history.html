@@ -1,0 +1,73 @@
+{% extends 'main/base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="min-h-screen bg-gray-50 py-8">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        
+        <!-- Заголовок + Назад -->
+        <div class="mb-8 flex items-center justify-between">
+            <div>
+                <h1 class="text-2xl font-bold text-gray-900 tracking-wide">ИСТОРИЯ ЗАКАЗОВ</h1>
+                <p class="text-sm text-gray-500 mt-1">Все ваши покупки в одном месте</p>
+            </div>
+            <a href="{% url 'users:profile' %}" class="text-sm text-gray-600 hover:text-gray-900 flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+                Назад в кабинет
+            </a>
+        </div>
+
+        <!-- Список заказов -->
+        {% if orders %}
+            <div class="space-y-4">
+                {% for order in orders %}
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+                        <div>
+                            <h3 class="text-lg font-bold text-gray-900">Заказ №{{ order.id }}</h3>
+                            <p class="text-sm text-gray-500">{{ order.created_at|date:"d E Y" }}</p>
+                        </div>
+                        <div class="flex items-center gap-4">
+                            <span class="px-3 py-1 rounded-full text-xs font-semibold 
+                                {% if order.status == 'paid' %}bg-green-100 text-green-800
+                                {% elif order.status == 'pending' %}bg-yellow-100 text-yellow-800
+                                {% else %}bg-gray-100 text-gray-800{% endif %}">
+                                {{ order.get_status_display }}
+                            </span>
+                            <span class="text-lg font-bold text-gray-900">₽{{ order.total|floatformat:2 }}</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Состав заказа (кратко) -->
+                    <div class="border-t border-gray-100 pt-4">
+                        <div class="flex flex-wrap gap-2 mb-4">
+                            {% for item in order.items.all %}
+                                <span class="text-xs bg-gray-50 border border-gray-200 px-2 py-1 rounded">
+                                    {{ item.product.name }} × {{ item.quantity }}
+                                </span>
+                            {% endfor %}
+                        </div>
+                        <a href="{% url 'users:order_detail' order.id %}" 
+                           class="inline-flex items-center text-sm font-semibold text-gray-900 hover:text-gray-700">
+                            Подробнее о заказе →
+                        </a>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
+                <svg class="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path>
+                </svg>
+                <h3 class="text-lg font-medium text-gray-900 mb-2">Заказов пока нет</h3>
+                <p class="text-gray-500 mb-6">Оформите первый заказ, и он появится здесь</p>
+                <a href="{% url 'main:catalog_all' %}" 
+                   class="inline-block bg-black text-white px-6 py-3 rounded-lg hover:bg-gray-800 transition-colors font-medium">
+                    Перейти в каталог
+                </a>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

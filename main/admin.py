@@ -1,7 +1,7 @@
 from django.contrib import admin
 
 from .models import Category, Size, Product, \
-    ProductImage, ProductSize
+    ProductImage, ProductSize, Banner
 
 
 class ProductImageInline(admin.TabularInline):
@@ -28,6 +28,21 @@ class CategoryAdmin(admin.ModelAdmin):
 
 class SizeAdmin(admin.ModelAdmin):
     list_display = ['name']
+
+
+@admin.register(Banner)
+class BannerAdmin(admin.ModelAdmin):
+    list_display = ('title', 'is_active', 'order', 'image_tag')
+    list_filter = ('is_active',)
+    search_fields = ('title',)
+    ordering = ('order',)
+    
+    def image_tag(self, obj):
+        if obj.image:
+            from django.utils.html import format_html
+            return format_html('<img src="{}" style="max-height: 50px;" />', obj.image.url)
+        return "—"
+    image_tag.short_description = "Изображение"
 
 
 admin.site.register(Category, CategoryAdmin)

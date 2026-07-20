@@ -47,8 +47,8 @@ def mark_processing(modeladmin, request, queryset):
 @admin.register(Order)
 class OrderAdmin(admin.ModelAdmin):
     list_display = (
-        'id', 'user', 'full_name', 'email', 'payment_reference',
-        'total', 'status', 'created_at', 'is_expired_badge'
+        'id', 'user', 'full_name', 'email', 'payment_reference', 
+        'total', 'status', 'created_at', 'payment_deadline_display'
     )
     list_filter = ('status', 'created_at', 'promo_code')
     search_fields = ('user__email', 'first_name', 'last_name', 'payment_reference', 'email')
@@ -97,3 +97,26 @@ class OrderAdmin(admin.ModelAdmin):
         if hasattr(obj, 'is_expired') and obj.is_expired:
             return mark_safe('<span style="color: red; font-weight: bold;">⚠️ Просрочен</span>')
         return mark_safe('<span style="color: green;">✅ Активен</span>')
+    
+    def payment_deadline_display(self, obj):
+        """Отображение статуса срока оплаты"""
+        
+        # ✅ 1. Сначала проверяем статус заказа
+        if obj.status == 'cancelled':
+            return mark_safe('<span style="color: #9ca3af;">❌ Отменён</span>')
+        
+        if obj.status == 'paid':
+            return mark_safe('<span style="color: #16a34a;">✅ Оплачен</span>')
+        
+        if obj.status in ('shipped', 'delivered'):
+            return mark_safe('<span style="color: #6b7280;">—</span>')
+        
+        # ✅ 2. Для активных заказов проверяем дедлайн
+        if hasattr(obj, 'expires_at') and obj.expires_at:
+            if obj.expires_at < timezone.now():
+                return mark_safe('<span style="color: #dc2626; font-weight: bold;">⚠️ Просрочен</span>')
+            return mark_safe('<span style="color: #16a34a;">✅ Активен</span>')
+        
+        return mark_safe('<span style="color: #9ca3af;">—</span>')
+    
+    payment_deadline_display.short_description = 'СРОК ОПЛАТЫ'

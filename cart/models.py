@@ -45,6 +45,10 @@ class PromoCode(models.Model):
         if self.max_usage > 0 and self.usage_count >= self.max_usage: return False
         return True
 
+    class Meta:
+        verbose_name = "Промокод"
+        verbose_name_plural = "Промокоды"
+
     def __str__(self):
         return f"{self.code} ({self.discount_value}{'%' if self.discount_type=='percent' else '₽'})"
 
@@ -62,6 +66,8 @@ class CartItem(models.Model):
         constraints = [
             UniqueConstraint(fields=['cart', 'product', 'product_size'], name='unique_cart_item')
         ]
+        verbose_name = "Товар в корзине"
+        verbose_name_plural = "Товары в корзине"
 
     def __str__(self):
         return f"{self.product.name} - {self.product_size.size.name} x {self.quantity}"
@@ -78,6 +84,10 @@ class Cart(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     promo_code = models.ForeignKey(PromoCode, on_delete=models.SET_NULL, null=True, blank=True)
     promo_discount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+
+    class Meta:
+        verbose_name = "Корзина"
+        verbose_name_plural = "Корзины"
 
     def __str__(self):
         return f"Cart {self.session_key}"
@@ -158,3 +168,5 @@ class Cart(models.Model):
         self.promo_discount = 0
         self.promo_code = None
         self.save(update_fields=['promo_discount', 'promo_code'])
+
+        

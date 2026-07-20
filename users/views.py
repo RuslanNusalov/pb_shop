@@ -4,7 +4,7 @@ from django.contrib.auth.decorators import login_required
 from django.urls import reverse, reverse_lazy
 from django.http import HttpResponse
 from django.template.response import TemplateResponse
-
+from django.utils.http import url_has_allowed_host_and_scheme
 from orders.models import Order
 from .forms import CustomUserCreationForm, CustomUserLoginForm, CustomUserUpdateForm
 from django.contrib import messages
@@ -33,16 +33,27 @@ def login_view(request):
     if request.method == 'POST':
         form = CustomUserLoginForm(request=request, data=request.POST)
         if form.is_valid():
-            login(request, form.get_user())
-            if request.headers.get('HX-Request'):
-                return HttpResponse(headers={'HX-Redirect': reverse('main:index')})
-            return redirect('main:index')
+            user = form.get_user()
+            login(request, user)
+            
+            # ✅ 1. Берём next из POST (скрытое поле формы) или GET
+            next_url = request.POST.get('next') or request.GET.get('next')
+            
+            # ✅ 2. Проверяем безопасность URL (защита от открытых редиректов)
+            if next_url and url_has_allowed_host_and_scheme(
+                next_url, 
+                allowed_hosts={request.get_host()}, 
+                require_https=request.is_secure()
+            ):
+                return redirect(next_url)
+            
+            # ✅ 3. Если next пустой или небезопасный → фоллбэк на профиль
+            return redirect('users:profile')
+            
     else:
         form = CustomUserLoginForm()
 
     context = {'form': form}
-    if request.headers.get('HX-Request'):
-        return TemplateResponse(request, 'users/login.html', context)
     return render(request, 'users/login_page.html', context)
 
 
@@ -123,7 +134,7 @@ def logout_view(request):
 @login_required(login_url=reverse_lazy('users:login'))
 def order_history(request):
     orders = Order.objects.filter(user=request.user).order_by('-created_at')
-    return TemplateResponse(request, 'users/partials/order_history.html', {'orders': orders})
+    return render(request, 'users/order_history.html', {'orders': orders})
 
 
 @login_required(login_url=reverse_lazy('users:login'))
@@ -133,4 +144,20 @@ def order_detail(request, order_id):
         id=order_id,
         user=request.user
     )
-    return TemplateResponse(request, 'users/partials/order_detail.html', {'order': order})
+    return TemplateResponse(request, 'users/order_detail.html', {'order': order})
+
+
+@login_required
+def cancel_order(request, order_id):
+    """Отмена заказа"""
+    order = get_object_or_404(Order, id=order_id, user=request.user)
+    
+    # Можно отменить только заказы в статусе "pending" (ожидает оплаты)
+    if order.status == 'pending':
+        order.status = 'cancelled'
+        order.save()
+        messages.success(request, f'Заказ №{order.id} успешно отменён')
+    else:
+        messages.error(request, 'Этот заказ нельзя отменить')
+    
+    return redirect('users:order_detail', order_id=order.id)

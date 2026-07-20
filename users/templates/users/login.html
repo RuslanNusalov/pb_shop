@@ -30,10 +30,10 @@
             </div>
         {% endif %}
         
-        <form id="loginForm" method="post" class="space-y-6" 
-              hx-post="{% url 'users:login' %}" 
-              hx-target="#main-content">
+        <!-- ✅ ИСПРАВЛЕНО: добавлен закрывающий ">" и в конце "</form>" -->
+        <form id="loginForm" method="post" class="space-y-6">
             {% csrf_token %}
+            <input type="hidden" name="next" value="{{ request.GET.next|default:'' }}">
             
             <div>
                 {{ form.username }}
@@ -50,23 +50,18 @@
             </div>
             
             <div class="grid grid-cols-2 gap-4 pt-4">
-                <button 
-                    type="submit"
-                    class="bg-black hover:bg-gray-500 text-white font-semibold py-3 px-6 transition-colors duration-200 text-sm tracking-wide"
-                >
+                <button type="submit" 
+                        class="bg-black hover:bg-gray-800 text-white font-semibold py-3 px-6 transition-colors duration-200 text-sm tracking-wide">
                     ВХОД
                 </button>
-                <a 
-                    href="{% url 'users:register' %}"
-                    hx-get="{% url 'users:register' %}"
-                    hx-target="#main-content"
-                    hx-push-url="true"
-                    class="border-2 border-gray-300 hover:border-gray-400 text-gray-700 hover:text-gray-900 font-semibold py-3 px-6 transition-colors duration-200 text-sm tracking-wide text-center"
-                >
+                
+                <!-- ✅ Убраны hx-get/hx-target, чтобы не ломать верстку двойным хедером -->
+                <a href="{% url 'users:register' %}" 
+                   class="border-2 border-gray-300 hover:border-gray-400 text-gray-700 hover:text-gray-900 font-semibold py-3 px-6 transition-colors duration-200 text-sm tracking-wide text-center">
                     СОЗДАТЬ ЛИЧНЫЙ КАБИНЕТ
                 </a>
             </div>
-        </form>
+        </form> <!-- ✅ ОБЯЗАТЕЛЬНО закрываем форму -->
     </div>
 </div>
 

@@ -1,14 +1,21 @@
-{% extends 'main/base.html' %}
+{% load static %}
 
-{% block content %}
-<!-- 🔥 ЭТО ФАЙЛ product_detail.html 🔥 -->
+
 <main class="mx-auto px-4 sm:px-6 lg:px-8 py-8">
     <!-- Breadcrumb -->
     <div class="mb-8">
         <nav class="text-sm text-gray-600">
-            <a href="{% url 'main:index' %}" class="hover:text-gray-900">Главная</a>
+            <a href="{% url 'main:index' %}" 
+               hx-get="{% url 'main:index' %}" 
+               hx-target="#main-content" 
+               hx-push-url="true"
+               class="hover:text-gray-900">Главная</a>
             <span class="mx-2">/</span>
-            <a href="{% url 'main:catalog' product.category.slug %}" class="hover:text-gray-900">{{ product.category.name|upper }}</a>
+            <a href="{% url 'main:catalog' product.category.slug %}" 
+               hx-get="{% url 'main:catalog' product.category.slug %}" 
+               hx-target="#main-content" 
+               hx-push-url="true"
+               class="hover:text-gray-900">{{ product.category.name|upper }}</a>
             <span class="mx-2">/</span>
             <span class="text-gray-900">{{ product.name|upper }}</span>
         </nav>
@@ -117,23 +124,13 @@
             </button>
             {% endif %}
 
-            <!-- ✅ Кнопка добавления в избранное (ОДНА, обновляется при смене размера) -->
-            <div class="flex-shrink-0 pt-2">
-                <div id="wishlist-btn-container"
-                     data-product-id="{{ product.id }}"
-                     {% if product.product_sizes.first %}
-                         data-first-size-id="{{ product.product_sizes.first.pk }}"
-                         hx-trigger="load"
-                         hx-get="{% url 'wishlist:get_toggle_btn' product.id product.product_sizes.first.pk %}"
-                         hx-swap="innerHTML"
-                     {% else %}
-                         hx-trigger="never"
-                     {% endif %}>
-                    <!-- Заглушка -->
-                    <button disabled class="px-4 py-2 border border-gray-300 rounded text-sm text-gray-400">
-                        ♥
-                    </button>
-                </div>
+            <!-- Кнопка добавления в избранное -->
+            <div class="flex-shrink-3">
+                {% if product.id in wishlist_ids %}
+                    {% include 'wishlist/partials/toggle_btn.html' with product=product is_in_wishlist=True %}
+                {% else %}
+                    {% include 'wishlist/partials/toggle_btn.html' with product=product is_in_wishlist=False %}
+                {% endif %}
             </div>
 
             <!-- Product Details -->
@@ -152,7 +149,10 @@
         <h2 class="text-xl font-bold tracking-tight text-gray-900 mb-8">ВАМ ТАКЖЕ МОГУТ ПОНРАВИТЬСЯ</h2>
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {% for rp in related_products %}
-            <a href="{% url 'main:product_detail' rp.slug %}" class="product-card group block">
+            <div class="product-card group cursor-pointer" 
+                 hx-get="{% url 'main:product_detail' rp.slug %}"
+                 hx-target="#main-content"
+                 hx-push-url="true">
                 <div class="aspect-square overflow-hidden bg-gray-100 rounded-lg mb-4">
                     {% if rp.main_image %}
                         <img src="{{ rp.main_image.url }}" 
@@ -169,7 +169,7 @@
                     <p class="text-sm text-gray-600 mb-1">{{ rp.color|upper }}</p>
                     <p class="text-sm font-medium">₽{{ rp.price }}</p>
                 </div>
-            </a>
+            </div>
             {% endfor %}
         </div>
     </div>
@@ -177,6 +177,7 @@
 </main>
 
 <style>
+    /* Скрываем радио-кнопки визуально, но оставляем доступными для клавиатуры */
     .size-radio {
         position: absolute;
         opacity: 0;
@@ -189,11 +190,15 @@
         white-space: nowrap;
         border: 0;
     }
+
+    /* Выбранный размер — чёрный фон, белый текст */
     .size-label.selected {
         background-color: #000 !important;
         color: #fff !important;
         border-color: #000 !important;
     }
+
+    /* Недоступный размер */
     .size-label:has(.size-radio:disabled) {
         opacity: 0.4;
         cursor: not-allowed;
@@ -202,16 +207,18 @@
 </style>
 
 <script>
+// === Глобальная функция инициализации (можно вызывать многократно) ===
 function initProductDetail() {
     const sizeLabels = document.querySelectorAll('.size-label');
     const sizeRadios = document.querySelectorAll('input[name="size_id"]');
     const addToCartBtn = document.getElementById('add-to-cart-btn');
     const btnText = document.getElementById('btn-text');
     const sizeInput = document.getElementById('selected-size-id');
-    const wishlistContainer = document.getElementById('wishlist-btn-container');
 
+    // Если элементов нет на этой странице — выходим
     if (!addToCartBtn || !sizeInput || sizeRadios.length === 0) return;
 
+    // Функция активации кнопки
     function activateButton(radio) {
         if (!radio || radio.disabled) return;
         
@@ -221,27 +228,9 @@ function initProductDetail() {
         
         sizeLabels.forEach(l => l.classList.remove('selected'));
         radio.closest('.size-label')?.classList.add('selected');
-        
-        // ✅ НАДЁЖНОЕ ОБНОВЛЕНИЕ КНОПКИ
-        if (wishlistContainer && typeof htmx !== 'undefined') {
-            const productId = wishlistContainer.dataset.productId;
-            const sizeId = radio.value;
-            // Добавляем timestamp, чтобы избежать кэширования браузером
-            const newUrl = `/wishlist/toggle-btn/${productId}/${sizeId}/?_t=${Date.now()}`;
-            
-            console.log(`🔄 Запрос кнопки: ${newUrl}`);
-            
-            htmx.ajax('GET', newUrl, {
-                target: wishlistContainer,
-                swap: 'innerHTML',
-                // Если swap не сработал — логируем ошибку
-                onError: function(err) {
-                    console.error('❌ HTMX swap failed:', err);
-                }
-            });
-        }
     }
 
+    // Обработчики (вешаем только если ещё не навешаны)
     if (!addToCartBtn.dataset.handlersAttached) {
         sizeLabels.forEach(label => {
             label.addEventListener('click', function(e) {
@@ -261,20 +250,31 @@ function initProductDetail() {
             });
         });
         
+        // Помечаем, что обработчики уже навешаны (защита от дублирования)
         addToCartBtn.dataset.handlersAttached = 'true';
     }
 
+    // 🔥 Инициализация: авто-выбор первого доступного размера
     const firstAvailable = document.querySelector('input[name="size_id"]:not(:disabled)');
     if (firstAvailable && !document.querySelector('input[name="size_id"]:checked')) {
         firstAvailable.checked = true;
     }
     
+    // Синхронизируем кнопку с текущим состоянием
     const checked = document.querySelector('input[name="size_id"]:checked:not(:disabled)');
-    if (checked) activateButton(checked);
+    if (checked) {
+        activateButton(checked);
+    }
 }
 
+// === Запускаем инициализацию при: ===
+// 1. Первой загрузке страницы
 document.addEventListener('DOMContentLoaded', initProductDetail);
 
+// 2. Каждой HTMX-подгрузке контента (критично!)
+document.addEventListener('htmx:load', initProductDetail);
+
+// === HTMX обработчики (глобальные, вешаются один раз) ===
 function onAddToCartStart(form) {
     const btn = document.getElementById('add-to-cart-btn');
     const text = document.getElementById('btn-text');
@@ -293,6 +293,7 @@ function onAddToCartEnd(form) {
     if (loader) loader.classList.add('hidden');
 }
 
+// Слушатели уведомлений
 document.addEventListener('showToast', e => {
     if (typeof showToast === 'function') {
         const {message, type} = e.detail;
@@ -304,5 +305,5 @@ document.addEventListener('cartUpdated', e => {
         updateHeaderCartCount(e.detail.total);
     }
 });
+console.log(' product_detail.js загружен. URL:', window.location.pathname);
 </script>
-{% endblock %}

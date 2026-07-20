@@ -42,6 +42,7 @@ class Product(models.Model):
     main_image = models.ImageField(upload_to='products/main/')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    is_active = models.BooleanField(default=True)
 
     def save(self, *args, **kwargs):
         if not self.slug:
@@ -49,8 +50,8 @@ class Product(models.Model):
         super().save(*args, **kwargs)
 
     class Meta:
-        verbose_name = "Продукт"
-        verbose_name_plural = "Продукты"
+        verbose_name = "Товар"
+        verbose_name_plural = "Товары"
 
     def __str__(self):
         return self.name
@@ -77,3 +78,21 @@ class ProductImage(models.Model):
         Product, on_delete=models.CASCADE, related_name='images'
     )
     image = models.ImageField(upload_to='products/extra/')
+
+
+class Banner(models.Model):
+    title = models.CharField("Заголовок", max_length=255)
+    subtitle = models.TextField("Подзаголовок", blank=True)
+    image = models.ImageField("Изображение", upload_to='banners/')
+    button_text = models.CharField("Текст кнопки", max_length=50, default="ПОДРОБНЕЕ")
+    link = models.CharField("Ссылка (URL или slug)", max_length=255, default="/")
+    order = models.PositiveIntegerField("Порядок", default=0, help_text="Меньшее число = раньше")
+    is_active = models.BooleanField("Активен", default=True)
+
+    class Meta:
+        verbose_name = "Баннер"
+        verbose_name_plural = "Баннеры"
+        ordering = ['order']
+
+    def __str__(self):
+        return self.title

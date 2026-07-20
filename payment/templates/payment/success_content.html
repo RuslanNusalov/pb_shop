@@ -4,9 +4,6 @@
         <p class="text-gray-600 mb-4">Заказ №{{ order.id }} успешно оформлен.</p>
         <p class="text-gray-600 mb-8">Подтверждение отправим на <strong>{{ order.email }}</strong>.</p>
         <a href="{% url 'main:index' %}" 
-           hx-get="{% url 'main:index' %}" 
-           hx-target="#main-content" 
-           hx-push-url="true"
            class="bg-black text-white px-6 py-3 text-sm font-medium uppercase hover:bg-gray-800 transition-colors">
             Продолжить покупки
         </a>

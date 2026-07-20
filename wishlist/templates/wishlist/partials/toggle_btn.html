@@ -1,0 +1,19 @@
+<!-- wishlist/partials/toggle_btn.html -->
+<button type="button"
+        {% if product_size and product_size.id %}
+            hx-post="{% url 'wishlist:toggle' product_size.id %}"
+            hx-swap="outerHTML"
+        {% else %}
+            hx-post="#" disabled
+        {% endif %}
+        class="{% if compact %}p-2{% else %}px-4 py-2{% endif %} border rounded text-sm font-medium transition-all duration-200
+               {% if is_in_wishlist %}
+                   text-red-500 hover:text-red-600 bg-red-50 border-red-200
+               {% else %}
+                   text-gray-400 hover:text-gray-600 hover:bg-gray-50 border-gray-300
+               {% endif %}">
+    <span>♥</span>
+    {% if not compact %}
+        <span class="ml-1.5">{% if is_in_wishlist %}В избранном{% else %}В избранное{% endif %}</span>
+    {% endif %}
+</button>

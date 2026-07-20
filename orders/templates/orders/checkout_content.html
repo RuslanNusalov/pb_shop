@@ -8,10 +8,7 @@
                 <!-- Breadcrumb -->
                 <div class="text-center lg:text-left">
                     <nav class="flex items-center space-x-2 text-sm text-gray-600">
-                        <a href="{% url 'main:index' %}" 
-                           hx-get="{% url 'main:index' %}" 
-                           hx-target="#main-content" 
-                           hx-push-url="true"
+                        <a href="{% url 'main:index' %}"
                            class="hover:text-gray-900">ГЛАВНАЯ</a>
                         <span class="mx-2">/</span>
                         <span class="font-medium">ОФОРМЛЕНИЕ ЗАКАЗА</span>
@@ -22,7 +19,7 @@
                 <div class="bg-white p-6">
                     <h2 class="text-lg font-bold text-black mb-4">Контактная информация</h2>
                     
-                    <form method="post" id="order-form" hx-post="{% url 'orders:checkout' %}" hx-target="#main-content" hx-swap="outerHTML">
+                    <form method="post" id="order-form" action="{% url 'orders:checkout' %}">
                         {% csrf_token %}
                         <div class="bg-white p-6">
                             <div class="space-y-4">
@@ -222,7 +219,7 @@
             <div class="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
                 <p class="text-xs text-gray-600">
                     <strong>Как работает оплата:</strong><br>
-                    1. Нажмите «Оформить заказ»<br>
+                    1. Нажмите «Оформить»<br>
                     2. Скопируйте данные карты и уникальный код<br>
                     3. Оплатите через свое банковское приложение<br>
                     4. Мы подтвердим в течении 24 часов и отправим товар 📦

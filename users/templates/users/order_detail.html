@@ -1,0 +1,122 @@
+{% extends 'main/base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="min-h-screen bg-gray-50 py-8">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+        
+        <!-- Заголовок + Назад -->
+        <div class="mb-6 flex items-center justify-between">
+            <h1 class="text-2xl font-bold text-gray-900 tracking-wide">ЗАКАЗ №{{ order.id }}</h1>
+            <a href="{% url 'users:order_history' %}" class="text-sm text-gray-600 hover:text-gray-900 flex items-center gap-1">
+                ← Назад к списку
+            </a>
+        </div>
+
+        <!-- Карточка заказа -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            
+            <!-- Статус, дата, сумма -->
+            <div class="p-6 border-b border-gray-200 bg-gray-50">
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div>
+                        <p class="text-xs text-gray-500 uppercase tracking-wide">Размещён</p>
+                        <p class="font-medium text-gray-900 mt-1">{{ order.created_at|date:"d E Y" }}</p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-gray-500 uppercase tracking-wide">Статус</p>
+                        <span class="inline-block mt-1 px-3 py-1 rounded-full text-xs font-semibold 
+                            {% if order.status == 'paid' %}bg-green-100 text-green-800
+                            {% elif order.status == 'pending' %}bg-yellow-100 text-yellow-800
+                            {% elif order.status == 'shipped' %}bg-blue-100 text-blue-800
+                            {% else %}bg-gray-100 text-gray-800{% endif %}">
+                            {{ order.get_status_display }}
+                        </span>
+                    </div>
+                    <div class="sm:text-right">
+                        <p class="text-xs text-gray-500 uppercase tracking-wide">Сумма</p>
+                        <p class="text-xl font-bold text-gray-900 mt-1">₽{{ order.total|floatformat:2 }}</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Адрес доставки -->
+            <div class="p-6 border-b border-gray-200">
+                <h3 class="text-sm font-semibold text-gray-900 uppercase tracking-wide mb-3">Адрес доставки</h3>
+                <div class="text-sm text-gray-700 space-y-1">
+                    <p class="font-medium">{{ order.first_name|default:request.user.first_name }} {{ order.last_name|default:request.user.last_name }}</p>
+                    {% if order.address %}<p>{{ order.address }}</p>{% endif %}
+                    {% if order.city %}<p>{{ order.city }}{% if order.postal_code %}, {{ order.postal_code }}{% endif %}</p>{% endif %}
+                    {% if order.phone %}<p class="text-gray-500">Тел: {{ order.phone }}</p>{% endif %}
+                    {% if order.email %}<p class="text-gray-500">Email: {{ order.email }}</p>{% endif %}
+                </div>
+            </div>
+
+            <!-- Позиции заказа -->
+            <div class="p-6">
+                <h3 class="text-sm font-semibold text-gray-900 uppercase tracking-wide mb-4">Позиции заказа</h3>
+                <div class="space-y-4">
+                    {% for item in order.items.all %}
+                    <div class="flex items-center gap-4 py-3 border-b last:border-b-0">
+                        <div class="w-16 h-16 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0 border border-gray-200">
+                            {% if item.product.main_image %}
+                                <img src="{{ item.product.main_image.url }}" alt="{{ item.product.name }}" class="w-full h-full object-cover">
+                            {% else %}
+                                <div class="w-full h-full flex items-center justify-center text-gray-400 text-xs">Нет фото</div>
+                            {% endif %}
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <h4 class="font-medium text-gray-900 truncate">{{ item.product.name }}</h4>
+                            <p class="text-sm text-gray-500">Размер: {{ item.size|default:"—" }} | Артикул: {{ item.product.sku|default:"—" }}</p>
+                            <!-- ✅ Добавлена цена за единицу -->
+                            <p class="text-sm text-gray-600 mt-1">₽{{ item.price|floatformat:2 }} за шт.</p>
+                        </div>
+                        <div class="text-right flex-shrink-0">
+                            <p class="text-sm text-gray-500">Кол-во: {{ item.quantity }}</p>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <p class="text-gray-500 text-sm py-4">Состав заказа не найден.</p>
+                    {% endfor %}
+                </div>
+                
+                <!-- ✅ Итоговая сумма заказа -->
+                <div class="mt-6 pt-6 border-t border-gray-200 flex justify-between items-center">
+                    <span class="text-sm font-medium text-gray-600">Итого:</span>
+                    <span class="text-2xl font-bold text-gray-900">₽{{ order.total|floatformat:2 }}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Кнопка действия -->
+        <div class="mt-8 flex flex-col sm:flex-row gap-4">
+            {% if order.status == 'pending' %}
+            <form method="post" action="{% url 'users:cancel_order' order.id %}" 
+                onsubmit="return confirm('Вы уверены, что хотите отменить заказ №{{ order.id }}?');">
+                {% csrf_token %}
+                <button type="submit" 
+                        class="bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-lg font-medium transition-colors">
+                    Отменить заказ
+                </button>
+            </form>
+            {% endif %}
+            
+            <a href="{% url 'users:order_history' %}" 
+            class="inline-block bg-gray-800 hover:bg-gray-900 text-white px-6 py-3 rounded-lg font-medium transition-colors text-center">
+                ВЕРНУТЬСЯ В ИСТОРИЮ
+            </a>
+        </div>
+
+        <!-- Сообщение если заказ нельзя отменить -->
+        {% if order.status != 'pending' %}
+        <p class="mt-4 text-sm text-gray-500">
+            {% if order.status == 'cancelled' %}
+                ⚠️ Этот заказ был отменён
+            {% else %}
+                ⚠️ Заказ в статусе "{{ order.get_status_display }}" нельзя отменить
+            {% endif %}
+        </p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

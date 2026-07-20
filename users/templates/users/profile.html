@@ -50,17 +50,12 @@
                         </li>
                         <li class="nav-item">
                             <a href="{% url 'users:order_history' %}" 
-                               hx-get="{% url 'users:order_history' %}" 
-                               hx-target="#profile-main-content" 
-                               hx-push-url="true"
                                class="flex items-center text-gray-700 font-semibold text-sm tracking-wide hover:text-gray-900 {% if request.resolver_match.url_name == 'order_history' %}text-gray-900 border-l-4 border-gray-500 pl-2{% endif %}">
-                                ИСТОРИЯ ЗАКАЗА
+                                ИСТОРИЯ ЗАКАЗОВ
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a href="{% url 'users:logout' %}"
-                               hx-post="{% url 'users:logout' %}"
-                               class="flex items-center text-gray-700 font-semibold text-sm tracking-wide hover:text-gray-900">
+                            <a href="{% url 'users:logout' %}" class="block text-gray-700 font-semibold text-sm tracking-wide hover:text-red-600">
                                 ВЫХОД
                             </a>
                         </li>
@@ -72,7 +67,7 @@
             <div class="col-span-3" id="profile-main-content">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <!-- Latest Order -->
-                    <div class="bg-white p-6 rounded-lg shadow-lg card">
+                    {% comment %} <div class="bg-white p-6 rounded-lg shadow-lg card">
                         <h2 class="text-xl font-semibold text-gray-900 mb-4 tracking-wide">
                             ПОСЛЕДНИЙ ЗАКАЗ
                         </h2>
@@ -101,7 +96,7 @@
                                 КУПИТЬ
                             </button>
                         {% endif %}
-                    </div>
+                    </div> {% endcomment %}
                     
                     <!-- Account Details -->
                     <div class="bg-white p-6 rounded-lg shadow-lg card" id="account-details-content">
@@ -133,12 +128,12 @@
                 </div>
                 
                 <!-- Order History -->
-                <div class="mt-8">
-                    <h2 class="text-xl font-semibold text-gray-900 mb-4 tracking-wide">
-                        История заказов
-                    </h2>
-                    {% include 'users/partials/order_history.html' %}
-                </div>
+                {% comment %} <div class="mt-8">
+                    <a href="{% url 'users:order_history' %}" 
+                        class="block py-2 px-3 text-gray-700 font-medium text-sm tracking-wide hover:bg-gray-100 rounded transition-colors {% if request.resolver_match.url_name == 'order_history' %}bg-gray-100 text-gray-900 font-semibold{% endif %}">
+                        ИСТОРИЯ ЗАКАЗОВ
+                    </a>
+                </div> {% endcomment %}
                 
                 <!-- Recommendations -->
                 <div class="mt-8">

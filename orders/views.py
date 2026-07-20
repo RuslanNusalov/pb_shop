@@ -11,6 +11,7 @@ from django.db.models import Sum, F
 from django.core.exceptions import ValidationError
 from decimal import Decimal
 import logging
+from main.mixins import WishlistContextMixin
 
 from main.models import ProductSize
 from cart.models import PromoCode
@@ -22,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 
 @method_decorator(login_required(login_url='/users/login'), name='dispatch')
-class CheckoutView(CartMixin, View):
+class CheckoutView(WishlistContextMixin, CartMixin, View):
     def _checkout_context(self, form, cart, error_message=None):
         return {
             'form': form,
@@ -54,8 +55,6 @@ class CheckoutView(CartMixin, View):
 
         total_items = cart.items.aggregate(total=Sum('quantity'))['total'] or 0
         if total_items == 0:
-            if request.headers.get('HX-Request'):
-                return TemplateResponse(request, 'orders/empty_cart.html', {'message': 'Корзина пуста'})
             return redirect('cart:cart_modal')
 
         form_data = request.POST.copy()
@@ -69,8 +68,7 @@ class CheckoutView(CartMixin, View):
             context = self._checkout_context(
                 form, cart, error_message='Пожалуйста, исправьте ошибки в форме.'
             )
-            if request.headers.get('HX-Request'):
-                return TemplateResponse(request, 'orders/checkout_content.html', context)
+            # ✅ Всегда возвращаем полную страницу при ошибке
             return render(request, 'orders/checkout.html', context)
 
         cart_items = list(cart.items.select_related('product', 'product_size'))
@@ -132,19 +130,14 @@ class CheckoutView(CartMixin, View):
 
         except ValidationError as e:
             context = self._checkout_context(form, cart, error_message=str(e))
-            if request.headers.get('HX-Request'):
-                return TemplateResponse(request, 'orders/checkout_content.html', context)
+            # ✅ Всегда возвращаем полную страницу при ошибке
             return render(request, 'orders/checkout.html', context)
 
-        if request.headers.get('HX-Request'):
-            response = HttpResponse(status=200)
-            response['HX-Redirect'] = reverse('payment:payment_instructions', kwargs={'order_id': order.pk})
-            return response
-
+        # ✅ Успешно: стандартный редирект (Post-Redirect-Get)
         return redirect('payment:payment_instructions', order_id=order.pk)
 
 
-class OrderDetailView(LoginRequiredMixin, DetailView):
+class OrderDetailView(WishlistContextMixin, LoginRequiredMixin, DetailView):
     model = Order
     template_name = 'orders/order_detail.html'
     context_object_name = 'order'

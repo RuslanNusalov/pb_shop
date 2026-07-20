@@ -13,4 +13,5 @@ urlpatterns = [
     path('logout/', views.logout_view, name='logout'),
     path('order-history/', views.order_history, name='order_history'),
     path('order/<int:order_id>/', views.order_detail, name='order_detail'),
+    path('order/<int:order_id>/cancel/', views.cancel_order, name='cancel_order'),
 ]
