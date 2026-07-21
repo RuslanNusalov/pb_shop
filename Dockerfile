@@ -23,7 +23,7 @@ RUN pip install --no-cache-dir "poetry==${POETRY_VERSION}"
 
 # Зависимости Python
 COPY pyproject.toml poetry.lock ./
-RUN poetry install --no-root --no-ansi --no-dev
+RUN poetry install --no-root --no-ansi --only main
 
 # Код проекта
 COPY . .
