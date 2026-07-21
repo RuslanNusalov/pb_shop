@@ -1,0 +1,46 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Environment (не деплоить!)
+.env
+.env.local
+.env.*.local
+
+# Media & Static (монтируются как volumes)
+media/
+static/
+
+# DB
+*.db
+*.sqlite3
+
+# Docker (не нужен на Amvera)
+docker-compose*.yml
+Dockerfile.prod
+nginx/
+
+# Docs & Logs
+*.md
+docs/
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db

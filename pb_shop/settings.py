@@ -24,11 +24,11 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
-SECRET_KEY = os.getenv('SECRET_KEY')
+SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-change-me')
 if not SECRET_KEY:
     raise ImproperlyConfigured('SECRET_KEY environment variable is required')
 
-DEBUG = os.getenv('DEBUG', 'True').lower() in ('true', '1', 'yes')
+DEBUG = os.getenv('DEBUG', 'False') == 'True'
 
 ALLOWED_HOSTS = [
     host.strip()
@@ -102,6 +102,7 @@ DATABASES = {
         'HOST': os.getenv('POSTGRES_HOST'),
         'PORT': os.getenv('POSTGRES_PORT'),
         'ATOMIC_REQUESTS': True,
+        'CONN_MAX_AGE': 600,  # keep-alive для Gunicorn
     }
 }
 
@@ -144,10 +145,10 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = '/static/'
-STATIC_ROOT = os.path.join(BASE_DIR, 'static')
+STATIC_ROOT = BASE_DIR / 'static'
 
 MEDIA_URL = '/media/'
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+MEDIA_ROOT = BASE_DIR / 'media'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
@@ -160,3 +161,38 @@ LOGIN_REDIRECT_URL = 'users:profile'  # После входа перенапра
 LOGOUT_REDIRECT_URL = 'main:index'    # После выхода — на главную
 HANDLER404 = 'django.views.defaults.page_not_found'
 APPEND_SLASH = True
+
+import os
+from pathlib import Path
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+
+# 🔐 Безопасность
+SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-change-me')
+DEBUG = os.getenv('DEBUG', 'False') == 'True'
+
+# 🌐 ALLOWED_HOSTS: Amvera подставит свой домен автоматически
+ALLOWED_HOSTS = [
+    host.strip() 
+    for host in os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',') 
+    if host.strip()
+]
+
+# 🗄️ PostgreSQL (Amvera предоставляет переменные)
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': os.getenv('POSTGRES_DB', 'pb_shop'),
+        'USER': os.getenv('POSTGRES_USER', 'pb_shop'),
+        'PASSWORD': os.getenv('POSTGRES_PASSWORD', 'pb_shop'),
+        'HOST': os.getenv('POSTGRES_HOST', 'localhost'),
+        'PORT': os.getenv('POSTGRES_PORT', '5432'),
+        'CONN_MAX_AGE': 600,  # keep-alive для Gunicorn
+    }
+}
+
+
+# ⚡ Whitenoise (опционально: отдача статики через Django, если volume не смонтирован)
+if not DEBUG:
+    MIDDLEWARE = ['whitenoise.middleware.WhiteNoiseMiddleware'] + MIDDLEWARE
+    STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'

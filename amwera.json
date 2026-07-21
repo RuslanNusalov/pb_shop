@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "meta": {
+    "projectName": "pb-shop",
+    "description": "Django shop with PostgreSQL"
+  },
+  "runtime": {
+    "type": "docker",
+    "dockerfile": "Dockerfile",
+    "context": ".",
+    "port": 8000
+  },
+  "env": {
+    "DEBUG": "False",
+    "ALLOWED_HOSTS": "${AMVERA_APP_HOST},*.amvera.cloud",
+    "POSTGRES_HOST": "${POSTGRES_HOST}",
+    "POSTGRES_PORT": "${POSTGRES_PORT}",
+    "POSTGRES_DB": "${POSTGRES_DB}",
+    "POSTGRES_USER": "${POSTGRES_USER}",
+    "POSTGRES_PASSWORD": "${POSTGRES_PASSWORD}"
+  },
+  "mounts": [
+    {
+      "path": "/app/media",
+      "volume": "media-storage",
+      "mode": "rw"
+    },
+    {
+      "path": "/app/static",
+      "volume": "static-storage",
+      "mode": "rw"
+    }
+  ],
+  "healthcheck": {
+    "httpGet": {
+      "path": "/admin/",
+      "port": 8000
+    },
+    "initialDelaySeconds": 30,
+    "periodSeconds": 30
+  }
+}
