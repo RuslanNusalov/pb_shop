@@ -4,28 +4,48 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     POETRY_VERSION=2.1.3 \
     POETRY_VIRTUALENVS_CREATE=false \
-    POETRY_NO_INTERACTION=1
+    POETRY_NO_INTERACTION=1 \
+    PYTHONFAULTHANDLER=1 \
+    PYTHONHASHSEED=random
 
 WORKDIR /app
 
+# Системные зависимости
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     libpq-dev \
     postgresql-client \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
 
+# Poetry
 RUN pip install --no-cache-dir "poetry==${POETRY_VERSION}"
 
+# Зависимости Python
 COPY pyproject.toml poetry.lock ./
-RUN poetry install --no-root --no-ansi
+RUN poetry install --no-root --no-ansi --no-dev
 
+# Код проекта
 COPY . .
 
-COPY docker/entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+# Сборка статики (Amvera смонтирует volume поверх, но collectstatic нужен)
+RUN python manage.py collectstatic --noinput
+
+# Права доступа
+RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
+USER appuser
 
 EXPOSE 8000
 
-ENTRYPOINT ["/entrypoint.sh"]
+# Healthcheck для Amvera
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/admin/')" || exit 1
 
-CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "3", "--threads", "2", "pb_shop.wsgi:application"]
+# Запуск через Gunicorn
+CMD ["gunicorn", "pb_shop.wsgi:application", \
+     "--bind", "0.0.0.0:8000", \
+     "--workers", "3", \
+     "--threads", "2", \
+     "--timeout", "120", \
+     "--access-logfile", "-", \
+     "--error-logfile", "-"]
