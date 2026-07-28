@@ -55,6 +55,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -162,8 +163,6 @@ LOGOUT_REDIRECT_URL = 'main:index'    # После выхода — на гла�
 HANDLER404 = 'django.views.defaults.page_not_found'
 APPEND_SLASH = True
 
-import os
-from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
