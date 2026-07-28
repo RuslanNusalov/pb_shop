@@ -41,7 +41,5 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/admin/')" || exit 1
 
-COPY create_superuser.py /app/
-
-# Запускаем миграции → создаём админа → стартуем сервер
-CMD ["sh", "-c", "python manage.py migrate --noinput && python create_superuser.py && gunicorn pb_shop.wsgi:application --bind 0.0.0.0:8000 --workers 3 --threads 2 --timeout 120"]
+# Запускаем миграции → стартуем сервер
+CMD ["sh", "-c", "python manage.py migrate --noinput && gunicorn pb_shop.wsgi:application --bind 0.0.0.0:8000 --workers 3 --threads 2 --timeout 120"]
