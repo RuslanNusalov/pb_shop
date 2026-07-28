@@ -1,11 +1,3 @@
-
-        username='admin_spbpb',
-        email='spbpb@bk.ru',
-        password='zipjyk-nudju6-cUffot'  # ← Смените пароль!
-
-
-
-# fix_admin_user.py
 import os
 import django
 from django.contrib.auth import get_user_model
