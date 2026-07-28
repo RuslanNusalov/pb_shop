@@ -41,9 +41,6 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/admin/')" || exit 1
 
-COPY fix_admin_user.py /app/
-RUN python fix_admin_user.py
-
 COPY create_superuser.py /app/
 RUN python manage.py shell < create_superuser.py || true
 
