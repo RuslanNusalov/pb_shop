@@ -42,10 +42,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/admin/')" || exit 1
 
 # Запуск через Gunicorn
-CMD ["sh", "-c", "python manage.py migrate --noinput && gunicorn pb_shop.wsgi:application", \ 
-     "--bind", "0.0.0.0:8000", \
-     "--workers", "3", \
-     "--threads", "2", \
-     "--timeout", "120", \
-     "--access-logfile", "-", \
-     "--error-logfile", "-"]
+CMD ["sh", "-c", "python manage.py migrate --noinput && python manage.py collectstatic --noinput && gunicorn pb_shop.wsgi:application --bind 0.0.0.0:8000 --workers 3 --threads 2 --timeout 120 --access-logfile - --error-logfile -"]
