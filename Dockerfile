@@ -41,11 +41,5 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/admin/')" || exit 1
 
-# Создаем папку /data если нет
-RUN mkdir -p /data
-
-# Создаем symlink /app/media -> /data
-RUN ln -sf /data /app/media
-
 # Запускаем миграции → стартуем сервер
 CMD ["sh", "-c", "python manage.py migrate --noinput && gunicorn pb_shop.wsgi:application --bind 0.0.0.0:8000 --workers 3 --threads 2 --timeout 120"]
