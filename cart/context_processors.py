@@ -5,7 +5,7 @@ def cart_processor(request):
     if not request.session.session_key:
         request.session.create()
 
-    cart, created = Cart.objects.get_or_create(
+    cart = Cart.objects.get_or_create(
         session_key = request.session.session_key
     )
 

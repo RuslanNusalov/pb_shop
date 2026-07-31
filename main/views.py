@@ -1,11 +1,14 @@
-from django.shortcuts import get_object_or_404
-from django.views.generic import TemplateView, DetailView
-from django.template.response import TemplateResponse
+import logging
+
 from django.db.models import Q
-from .models import Category, Product, Size, Banner
+from django.shortcuts import get_object_or_404
+from django.template.response import TemplateResponse
+from django.views.generic import DetailView, TemplateView
+
 from main.mixins import WishlistContextMixin
 
-import logging
+from .models import Banner, Category, Product, Size
+
 logger = logging.getLogger(__name__)
 
 

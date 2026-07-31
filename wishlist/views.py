@@ -1,13 +1,17 @@
 import json
+import logging
+
 from django.contrib.auth.decorators import login_required
+from django.http import HttpResponse, JsonResponse
+from django.shortcuts import get_object_or_404, redirect, render, reverse
 from django.utils.decorators import method_decorator
-from django.shortcuts import get_object_or_404, render, redirect, reverse
 from django.views import View
 from django.views.generic import TemplateView
-from django.http import JsonResponse, HttpResponse
-from .models import Wishlist
+
 from main.models import ProductSize
-import logging
+
+from .models import Wishlist
+
 logger = logging.getLogger(__name__)
 
 class ToggleWishlistView(View):
@@ -107,7 +111,4 @@ class GetWishlistToggleBtn(View):
             'product_size': product_size,  # ← передаём размер, а не товар
             'is_in_wishlist': is_in,
             'count': wishlist.products.count() if wishlist else 0
-        }) 
-        
-        
-           
+        })
