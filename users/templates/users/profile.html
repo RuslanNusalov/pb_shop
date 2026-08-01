@@ -11,16 +11,18 @@
     .dotted-input:focus {
         border-bottom-color: #374151;
     }
-    .dotted-input::placeholder {
-        color: #6b7280;
-        font-weight: 500;
+    /* Анимация появления */
+    .fade-in {
+        animation: fadeIn 0.3s ease-in-out;
     }
-    .card {
-        transition: transform 0.2s ease;
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
     }
 </style>
 
-<div class="min-h-screen p-8">
+<!-- Обёртка с ID, на который ссылается HTMX -->
+<div id="main-content" class="min-h-screen p-8 fade-in">
     <div class="max-w-6xl mx-auto">
         <h1 class="text-3xl font-bold text-gray-900 mb-8 text-center tracking-wide">
             ПРИВЕТ, {{ request.user.first_name|upper }} {{ request.user.last_name|upper }}
@@ -40,6 +42,7 @@
                 <div class="bg-white p-6 rounded-lg shadow-lg">
                     <ul class="space-y-4">
                         <li class="nav-item">
+                            <!-- Цель #main-content, чтобы обновить всю область -->
                             <a href="{% url 'users:profile' %}" 
                                hx-get="{% url 'users:profile' %}" 
                                hx-target="#main-content" 
@@ -49,12 +52,17 @@
                             </a>
                         </li>
                         <li class="nav-item">
+                            <!-- Добавил HTMX для истории заказов, чтобы не перезагружать страницу полностью -->
                             <a href="{% url 'users:order_history' %}" 
+                               hx-get="{% url 'users:order_history' %}"
+                               hx-target="#main-content"
+                               hx-push-url="true"
                                class="flex items-center text-gray-700 font-semibold text-sm tracking-wide hover:text-gray-900 {% if request.resolver_match.url_name == 'order_history' %}text-gray-900 border-l-4 border-gray-500 pl-2{% endif %}">
                                 ИСТОРИЯ ЗАКАЗОВ
                             </a>
                         </li>
                         <li class="nav-item">
+                            <!-- Выход обычно лучше делать обычной ссылкой или POST запросом, но оставил как было -->
                             <a href="{% url 'users:logout' %}" class="block text-gray-700 font-semibold text-sm tracking-wide hover:text-red-600">
                                 ВЫХОД
                             </a>
@@ -64,39 +72,9 @@
             </div>
             
             <!-- Main Content -->
-            <div class="col-span-3" id="profile-main-content">
+            <!-- Убрал id="profile-main-content", чтобы не путаться с целями -->
+            <div class="col-span-3">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <!-- Latest Order -->
-                    {% comment %} <div class="bg-white p-6 rounded-lg shadow-lg card">
-                        <h2 class="text-xl font-semibold text-gray-900 mb-4 tracking-wide">
-                            ПОСЛЕДНИЙ ЗАКАЗ
-                        </h2>
-                        {% if latest_order %}
-                            <p class="text-sm text-gray-700">Заказ №{{ latest_order.id }}</p>
-                            <p class="text-sm text-gray-700">Размещён: {{ latest_order.created_at|date:"d.m.Y" }}</p>
-                            <p class="text-sm text-gray-700">Статус: {{ latest_order.get_status_display }}</p>
-                            <p class="text-sm text-gray-700">Итого: ₽{{ latest_order.total|floatformat:2 }}</p>
-                            <button
-                                hx-get="{% url 'users:order_detail' latest_order.id %}"
-                                hx-target="#profile-main-content"
-                                hx-push-url="true"
-                                class="mt-4 bg-gray-400 hover:bg-gray-500 text-white font-semibold py-2 px-4 transition-colors duration-200 text-sm tracking-wide"
-                            >
-                                ПОДРОБНЕЕ
-                            </button>
-                        {% else %}
-                            <p class="text-sm text-gray-700">У вас пока нет заказов.</p>
-                            <button 
-                                href="{% url 'main:index' %}" 
-                                hx-get="{% url 'main:index' %}" 
-                                hx-target="#main-content" 
-                                hx-push-url="true"
-                                class="mt-4 bg-gray-400 hover:bg-gray-500 text-white font-semibold py-2 px-4 transition-colors duration-200 text-sm tracking-wide"
-                            >
-                                КУПИТЬ
-                            </button>
-                        {% endif %}
-                    </div> {% endcomment %}
                     
                     <!-- Account Details -->
                     <div class="bg-white p-6 rounded-lg shadow-lg card" id="account-details-content">
@@ -126,14 +104,6 @@
                         </div>
                     </div>
                 </div>
-                
-                <!-- Order History -->
-                {% comment %} <div class="mt-8">
-                    <a href="{% url 'users:order_history' %}" 
-                        class="block py-2 px-3 text-gray-700 font-medium text-sm tracking-wide hover:bg-gray-100 rounded transition-colors {% if request.resolver_match.url_name == 'order_history' %}bg-gray-100 text-gray-900 font-semibold{% endif %}">
-                        ИСТОРИЯ ЗАКАЗОВ
-                    </a>
-                </div> {% endcomment %}
                 
                 <!-- Recommendations -->
                 <div class="mt-8">
@@ -172,25 +142,17 @@
     </div>
 </div>
 
+<!-- Глобальный скрипт для анимации (лучше вынести в base.html, но здесь тоже сработает) -->
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const navItems = document.querySelectorAll('.nav-item a');
-        navItems.forEach(item => {
-            item.addEventListener('click', function() {
-                navItems.forEach(nav => nav.classList.remove('text-gray-900', 'border-l-4', 'border-gray-500', 'pl-2'));
-                this.classList.add('text-gray-900', 'border-l-4', 'border-gray-500', 'pl-2');
-            });
-        });
-
-        document.body.addEventListener('htmx:afterSwap', function(event) {
-            const target = event.detail.target;
-            if (target.id === 'main-content' || target.id === 'profile-main-content' || target.id === 'account-details-content') {
-                target.classList.add('animate-section');
-                setTimeout(() => {
-                    target.classList.remove('animate-section');
-                }, 500);
-            }
-        });
+    // Используем событие HTMX вместо DOMContentLoaded
+    document.body.addEventListener('htmx:afterSwap', function(event) {
+        // Добавляем класс анимации к целевому элементу
+        const target = event.detail.target;
+        if(target) {
+            target.classList.remove('fade-in'); // Сброс для перезапуска
+            void target.offsetWidth; // Триггер рефлоу
+            target.classList.add('fade-in');
+        }
     });
 </script>
 {% endblock %}
