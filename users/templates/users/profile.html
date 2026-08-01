@@ -46,18 +46,18 @@
                             <a href="{% url 'users:profile' %}" 
                                {% comment %} hx-get="{% url 'users:profile' %}" 
                                hx-target="#main-content" 
-                               hx-push-url="true" {% endcomment %}
-                               class="flex items-center text-gray-700 font-semibold text-sm tracking-wide hover:text-gray-900 {% if request.resolver_match.url_name == 'profile' %}text-gray-900 border-l-4 border-gray-500 pl-2{% endif %}">
+                               hx-push-url="true"
+                               class="flex items-center text-gray-700 font-semibold text-sm tracking-wide hover:text-gray-900 {% if request.resolver_match.url_name == 'profile' %}text-gray-900 border-l-4 border-gray-500 pl-2{% endif %}"> {% endcomment %}
                                 ЛИЧНЫЙ КАБИНЕТ
                             </a>
                         </li>
                         <li class="nav-item">
                             <!-- Добавил HTMX для истории заказов, чтобы не перезагружать страницу полностью -->
                             <a href="{% url 'users:order_history' %}" 
-                               hx-get="{% url 'users:order_history' %}"
+                               {% comment %} hx-get="{% url 'users:order_history' %}"
                                hx-target="#main-content"
                                hx-push-url="true"
-                               class="flex items-center text-gray-700 font-semibold text-sm tracking-wide hover:text-gray-900 {% if request.resolver_match.url_name == 'order_history' %}text-gray-900 border-l-4 border-gray-500 pl-2{% endif %}">
+                               class="flex items-center text-gray-700 font-semibold text-sm tracking-wide hover:text-gray-900 {% if request.resolver_match.url_name == 'order_history' %}text-gray-900 border-l-4 border-gray-500 pl-2{% endif %}"> {% endcomment %}
                                 ИСТОРИЯ ЗАКАЗОВ
                             </a>
                         </li>
