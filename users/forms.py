@@ -1,9 +1,8 @@
 from django import forms
-from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
-from django.contrib.auth import get_user_model, authenticate
-from django.utils.html import strip_tags
+from django.contrib.auth import authenticate, get_user_model
+from django.contrib.auth.forms import AuthenticationForm, UserCreationForm
 from django.core.validators import RegexValidator
-
+from django.utils.html import strip_tags
 
 WIDGET_ATTRS = {'class': 'dotted-input w-full py-3 text-sm font-medium text-gray-900 placeholder-gray-500'}
 User = get_user_model()
