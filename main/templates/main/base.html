@@ -14,7 +14,7 @@
         event.detail.headers['X-CSRFToken'] = '{{ csrf_token }}';
     });
     </script> {% endcomment %}
-    
+
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
     
@@ -426,6 +426,15 @@
                 }
             });
         });
+        // Используем событие HTMX вместо DOMContentLoaded profile.html
+        document.body.addEventListener('htmx:afterSwap', function(event) {
+            // Добавляем класс анимации к целевому элементу
+            const target = event.detail.target;
+            if(target) {
+                target.classList.remove('fade-in'); // Сброс для перезапуска
+                void target.offsetWidth; // Триггер рефлоу
+                target.classList.add('fade-in');
+            }
         });
         
         // Global function to update cart count
