@@ -141,4 +141,18 @@
         </div>
     </div>
 </div>
+
+<!-- Глобальный скрипт для анимации (лучше вынести в base.html, но здесь тоже сработает) -->
+<script>
+    // Используем событие HTMX вместо DOMContentLoaded
+    document.body.addEventListener('htmx:afterSwap', function(event) {
+        // Добавляем класс анимации к целевому элементу
+        const target = event.detail.target;
+        if(target) {
+            target.classList.remove('fade-in'); // Сброс для перезапуска
+            void target.offsetWidth; // Триггер рефлоу
+            target.classList.add('fade-in');
+        }
+    });
+</script>
 {% endblock %}
