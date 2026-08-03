@@ -9,6 +9,7 @@ from django.utils.http import url_has_allowed_host_and_scheme
 
 from main.models import Product
 from orders.models import Order
+from wishlist.models import Wishlist
 
 from .forms import CustomUserCreationForm, CustomUserLoginForm, CustomUserUpdateForm
 
@@ -26,8 +27,9 @@ def register(request):
         form = CustomUserCreationForm()
 
     context = {'form': form}
+    # ✅ Если HTMX, отдаем только форму (без базы)
     if request.headers.get('HX-Request'):
-        return TemplateResponse(request, 'users/register.html', context)
+        return TemplateResponse(request, 'users/partials/register_form.html', context)
     return render(request, 'users/register_page.html', context)
 
 
@@ -38,29 +40,25 @@ def login_view(request):
             user = form.get_user()
             login(request, user)
             
-            # ✅ 1. Берём next из POST (скрытое поле формы) или GET
             next_url = request.POST.get('next') or request.GET.get('next')
-            
-            # ✅ 2. Проверяем безопасность URL (защита от открытых редиректов)
-            if next_url and url_has_allowed_host_and_scheme(
-                next_url, 
-                allowed_hosts={request.get_host()}, 
-                require_https=request.is_secure()
-            ):
+            if next_url and url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}, require_https=request.is_secure()):
                 return redirect(next_url)
-            
-            # ✅ 3. Если next пустой или небезопасный → фоллбэк на профиль
             return redirect('users:profile')
-            
     else:
         form = CustomUserLoginForm()
 
     context = {'form': form}
+    # ✅ Если HTMX, отдаем только форму
+    if request.headers.get('HX-Request'):
+        return TemplateResponse(request, 'users/partials/login_form.html', context)
     return render(request, 'users/login_page.html', context)
 
 
 @login_required(login_url=reverse_lazy('users:login'))
 def profile_view(request):
+    # Гарантируем наличие Wishlist
+    Wishlist.objects.get_or_create(user=request.user)
+
     if request.method == 'POST':
         form = CustomUserUpdateForm(request.POST, instance=request.user)
         if form.is_valid():
@@ -72,7 +70,7 @@ def profile_view(request):
     else:
         form = CustomUserUpdateForm(instance=request.user)
 
-    recommended_products = Product.objects.filter().order_by('-created_at')[:3]
+    recommended_products = Product.objects.filter(is_active=True).order_by('-created_at')[:3]
     latest_order = Order.objects.filter(user=request.user).order_by('-created_at').first()
 
     context = {
@@ -82,8 +80,12 @@ def profile_view(request):
         'latest_order': latest_order,
     }
 
+    # ✅ ГЛАВНОЕ ИСПРАВЛЕНИЕ:
     if request.headers.get('HX-Request'):
+        # Для HTMX отдаем ЧИСТЫЙ контент (без хедера/футера)
         return TemplateResponse(request, 'users/partials/profile_content.html', context)
+    
+    # Для обычного перехода отдаем полную страницу
     return TemplateResponse(request, 'users/profile_page.html', context)
 
 
@@ -112,7 +114,6 @@ def update_account_details(request):
 
     if form.is_valid():
         user = form.save()
-
         if request.headers.get('HX-Request'):
             return TemplateResponse(request, 'users/partials/account_details.html', {'user': user})
         return redirect('users:profile')
@@ -136,6 +137,11 @@ def logout_view(request):
 @login_required(login_url=reverse_lazy('users:login'))
 def order_history(request):
     orders = Order.objects.filter(user=request.user).order_by('-created_at')
+    
+    # ✅ ДОБАВЛЕНО: Проверка HTMX для истории заказов
+    if request.headers.get('HX-Request'):
+        return TemplateResponse(request, 'users/partials/order_history_content.html', {'orders': orders})
+    
     return render(request, 'users/order_history.html', {'orders': orders})
 
 
@@ -146,15 +152,17 @@ def order_detail(request, order_id):
         id=order_id,
         user=request.user
     )
+    
+    # ✅ ДОБАВЛЕНО: Проверка HTMX для деталей заказа
+    if request.headers.get('HX-Request'):
+        return TemplateResponse(request, 'users/partials/order_detail_content.html', {'order': order})
+        
     return TemplateResponse(request, 'users/order_detail.html', {'order': order})
 
 
-@login_required
+@login_required(login_url=reverse_lazy('users:login'))
 def cancel_order(request, order_id):
-    """Отмена заказа"""
     order = get_object_or_404(Order, id=order_id, user=request.user)
-    
-    # Можно отменить только заказы в статусе "pending" (ожидает оплаты)
     if order.status == 'pending':
         order.status = 'cancelled'
         order.save()
