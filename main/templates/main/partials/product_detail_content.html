@@ -1,180 +1,179 @@
 {% load static %}
 
 
-<main class="mx-auto px-4 sm:px-6 lg:px-8 py-8">
-    <!-- Breadcrumb -->
-    <div class="mb-8">
-        <nav class="text-sm text-gray-600">
-            <a href="{% url 'main:index' %}" 
-               hx-get="{% url 'main:index' %}" 
-               hx-target="#main-content" 
-               hx-push-url="true"
-               class="hover:text-gray-900">Главная</a>
-            <span class="mx-2">/</span>
-            <a href="{% url 'main:catalog' product.category.slug %}" 
-               hx-get="{% url 'main:catalog' product.category.slug %}" 
-               hx-target="#main-content" 
-               hx-push-url="true"
-               class="hover:text-gray-900">{{ product.category.name|upper }}</a>
-            <span class="mx-2">/</span>
-            <span class="text-gray-900">{{ product.name|upper }}</span>
-        </nav>
+<!-- Breadcrumb -->
+<div class="mb-8">
+    <nav class="text-sm text-gray-600">
+        <a href="{% url 'main:index' %}" 
+            hx-get="{% url 'main:index' %}" 
+            hx-target="#main-content" 
+            hx-push-url="true"
+            class="hover:text-gray-900">Главная</a>
+        <span class="mx-2">/</span>
+        <a href="{% url 'main:catalog' product.category.slug %}" 
+            hx-get="{% url 'main:catalog' product.category.slug %}" 
+            hx-target="#main-content" 
+            hx-push-url="true"
+            class="hover:text-gray-900">{{ product.category.name|upper }}</a>
+        <span class="mx-2">/</span>
+        <span class="text-gray-900">{{ product.name|upper }}</span>
+    </nav>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
+    <!-- Product Images -->
+    <div class="space-y-4">
+        <!-- Main Image -->
+        <div class="aspect-square overflow-hidden bg-gray-100 rounded-lg">
+            {% if product.main_image %}
+                <img id="main-product-image" 
+                        src="{{ product.main_image.url }}" 
+                        alt="{{ product.name }}" 
+                        class="w-full h-full object-cover transition-transform duration-300 hover:scale-105">
+            {% else %}
+                <div class="w-full h-full bg-gray-200 flex items-center justify-center">
+                    <span class="text-gray-400 text-sm">Нет изображения</span>
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- Additional Images -->
+        {% if product.images.all %}
+        <div class="grid grid-cols-3 gap-2">
+            {% for image in product.images.all %}
+            <button type="button"
+                    class="aspect-square overflow-hidden bg-gray-100 rounded-lg cursor-pointer hover:opacity-90 transition-opacity focus:outline-none focus:ring-2 focus:ring-black"
+                    onclick="document.getElementById('main-product-image').src = '{{ image.image.url }}'"
+                    aria-label="Показать изображение {{ forloop.counter }}">
+                <img src="{{ image.image.url }}" 
+                        alt="{{ product.name }} - вид {{ forloop.counter }}" 
+                        class="w-full h-full object-cover">
+            </button>
+            {% endfor %}
+        </div>
+        {% endif %}
     </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
-        <!-- Product Images -->
-        <div class="space-y-4">
-            <!-- Main Image -->
-            <div class="aspect-square overflow-hidden bg-gray-100 rounded-lg">
-                {% if product.main_image %}
-                    <img id="main-product-image" 
-                         src="{{ product.main_image.url }}" 
-                         alt="{{ product.name }}" 
-                         class="w-full h-full object-cover transition-transform duration-300 hover:scale-105">
+    <!-- Product Info -->
+    <div class="space-y-6">
+        <div>
+            <h1 class="text-2xl sm:text-3xl font-bold tracking-tight text-gray-900 mb-2">
+                {{ product.name|upper }}
+            </h1>
+            <p class="text-lg text-gray-600 mb-4">{{ product.color|upper }}</p>
+            <p class="text-2xl font-bold text-gray-900">₽{{ product.price }}</p>
+        </div>
+
+        <!-- Sizes -->
+        <div>
+            <h3 class="text-sm font-medium text-gray-900 mb-3">РАЗМЕР</h3>
+            {% if product.product_sizes.exists %}
+            <div class="grid grid-cols-4 gap-2" id="size-selector">
+                {% for ps in product.product_sizes.all %}
+                <label for="size-{{ ps.id }}"
+                        class="size-label block border border-gray-300 rounded-lg py-2 px-3 text-sm font-medium text-center cursor-pointer 
+                                hover:border-gray-900 hover:bg-gray-50 transition-all
+                                {% if ps.stock == 0 %}opacity-40 cursor-not-allowed bg-gray-50{% endif %}"
+                        data-size-id="{{ ps.id }}">
+                    <input type="radio" 
+                            name="size_id" 
+                            id="size-{{ ps.id }}"
+                            value="{{ ps.id }}"
+                            class="size-radio sr-only"
+                            {% if ps.stock == 0 %}disabled{% endif %}
+                            {% if forloop.first and ps.stock > 0 %}checked{% endif %}
+                            required>
+                    <span class="size-text">{{ ps.size.name }}</span>
+                    {% if ps.stock == 0 %}
+                        <span class="block text-[10px] mt-0.5 text-gray-400">нет</span>
+                    {% endif %}
+                </label>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-sm text-red-600 font-medium">⚠️ Нет доступных размеров</p>
+            {% endif %}
+        </div>
+        
+        <!-- Add to Cart - HTMX FORM -->
+        {% if product.product_sizes.exists %}
+        <form hx-post="{% url 'cart:add_to_cart' product.slug %}"
+                hx-target="#cart-container"
+                hx-swap="innerHTML"
+                hx-on:htmx:before-request="onAddToCartStart(this)"
+                hx-on:htmx:after-request="onAddToCartEnd(this)"
+                class="space-y-4"
+                id="add-to-cart-form">
+            {% csrf_token %}
+            <input type="hidden" name="size_id" id="selected-size-id" required>
+            <input type="hidden" name="quantity" value="1">
+            
+            <button type="submit" 
+                    id="add-to-cart-btn" 
+                    class="w-full bg-black text-white py-3 px-6 text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    disabled>
+                <span id="btn-text">ВЫБЕРИТЕ РАЗМЕР</span>
+                <span id="btn-loader" class="htmx-indicator hidden">⏳</span>
+            </button>
+        </form>
+        {% else %}
+        <button disabled 
+                class="w-full bg-gray-300 text-gray-500 py-3 px-6 text-sm font-medium rounded-lg cursor-not-allowed">
+            ТОВАР НЕДОСТУПЕН
+        </button>
+        {% endif %}
+
+        <!-- Кнопка добавления в избранное -->
+        <div class="flex-shrink-3">
+            {% if product.id in wishlist_ids %}
+                {% include 'wishlist/partials/toggle_btn.html' with product=product is_in_wishlist=True %}
+            {% else %}
+                {% include 'wishlist/partials/toggle_btn.html' with product=product is_in_wishlist=False %}
+            {% endif %}
+        </div>
+
+        <!-- Product Details -->
+        <div class="border-t border-gray-200 pt-6">
+            <h3 class="text-sm font-medium text-gray-900 mb-3">ДЕТАЛИ</h3>
+            <div class="prose prose-sm text-gray-600">
+                <p>{{ product.description|linebreaks }}</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Related Products -->
+{% if related_products %}
+<div class="mt-16 border-t border-gray-200 pt-16">
+    <h2 class="text-xl font-bold tracking-tight text-gray-900 mb-8">ВАМ ТАКЖЕ МОГУТ ПОНРАВИТЬСЯ</h2>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        {% for rp in related_products %}
+        <div class="product-card group cursor-pointer" 
+                hx-get="{% url 'main:product_detail' rp.slug %}"
+                hx-target="#main-content"
+                hx-push-url="true">
+            <div class="aspect-square overflow-hidden bg-gray-100 rounded-lg mb-4">
+                {% if rp.main_image %}
+                    <img src="{{ rp.main_image.url }}" 
+                            alt="{{ rp.name }}" 
+                            class="product-image w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
                 {% else %}
-                    <div class="w-full h-full bg-gray-200 flex items-center justify-center">
-                        <span class="text-gray-400 text-sm">Нет изображения</span>
+                    <div class="bg-gray-200 flex items-center justify-center h-full">
+                        <span class="text-gray-400 text-sm">Нет фото</span>
                     </div>
                 {% endif %}
             </div>
-
-            <!-- Additional Images -->
-            {% if product.images.all %}
-            <div class="grid grid-cols-3 gap-2">
-                {% for image in product.images.all %}
-                <button type="button"
-                        class="aspect-square overflow-hidden bg-gray-100 rounded-lg cursor-pointer hover:opacity-90 transition-opacity focus:outline-none focus:ring-2 focus:ring-black"
-                        onclick="document.getElementById('main-product-image').src = '{{ image.image.url }}'"
-                        aria-label="Показать изображение {{ forloop.counter }}">
-                    <img src="{{ image.image.url }}" 
-                         alt="{{ product.name }} - вид {{ forloop.counter }}" 
-                         class="w-full h-full object-cover">
-                </button>
-                {% endfor %}
-            </div>
-            {% endif %}
-        </div>
-
-        <!-- Product Info -->
-        <div class="space-y-6">
-            <div>
-                <h1 class="text-2xl sm:text-3xl font-bold tracking-tight text-gray-900 mb-2">
-                    {{ product.name|upper }}
-                </h1>
-                <p class="text-lg text-gray-600 mb-4">{{ product.color|upper }}</p>
-                <p class="text-2xl font-bold text-gray-900">₽{{ product.price }}</p>
-            </div>
-
-            <!-- Sizes -->
-            <div>
-                <h3 class="text-sm font-medium text-gray-900 mb-3">РАЗМЕР</h3>
-                {% if product.product_sizes.exists %}
-                <div class="grid grid-cols-4 gap-2" id="size-selector">
-                    {% for ps in product.product_sizes.all %}
-                    <label for="size-{{ ps.id }}"
-                           class="size-label block border border-gray-300 rounded-lg py-2 px-3 text-sm font-medium text-center cursor-pointer 
-                                  hover:border-gray-900 hover:bg-gray-50 transition-all
-                                  {% if ps.stock == 0 %}opacity-40 cursor-not-allowed bg-gray-50{% endif %}"
-                           data-size-id="{{ ps.id }}">
-                        <input type="radio" 
-                               name="size_id" 
-                               id="size-{{ ps.id }}"
-                               value="{{ ps.id }}"
-                               class="size-radio sr-only"
-                               {% if ps.stock == 0 %}disabled{% endif %}
-                               {% if forloop.first and ps.stock > 0 %}checked{% endif %}
-                               required>
-                        <span class="size-text">{{ ps.size.name }}</span>
-                        {% if ps.stock == 0 %}
-                            <span class="block text-[10px] mt-0.5 text-gray-400">нет</span>
-                        {% endif %}
-                    </label>
-                    {% endfor %}
-                </div>
-                {% else %}
-                <p class="text-sm text-red-600 font-medium">⚠️ Нет доступных размеров</p>
-                {% endif %}
-            </div>
-            
-            <!-- Add to Cart - HTMX FORM -->
-            {% if product.product_sizes.exists %}
-            <form hx-post="{% url 'cart:add_to_cart' product.slug %}"
-                  hx-target="#cart-container"
-                  hx-swap="innerHTML"
-                  hx-on:htmx:before-request="onAddToCartStart(this)"
-                  hx-on:htmx:after-request="onAddToCartEnd(this)"
-                  class="space-y-4"
-                  id="add-to-cart-form">
-                {% csrf_token %}
-                <input type="hidden" name="size_id" id="selected-size-id" required>
-                <input type="hidden" name="quantity" value="1">
-                
-                <button type="submit" 
-                        id="add-to-cart-btn" 
-                        class="w-full bg-black text-white py-3 px-6 text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                        disabled>
-                    <span id="btn-text">ВЫБЕРИТЕ РАЗМЕР</span>
-                    <span id="btn-loader" class="htmx-indicator hidden">⏳</span>
-                </button>
-            </form>
-            {% else %}
-            <button disabled 
-                    class="w-full bg-gray-300 text-gray-500 py-3 px-6 text-sm font-medium rounded-lg cursor-not-allowed">
-                ТОВАР НЕДОСТУПЕН
-            </button>
-            {% endif %}
-
-            <!-- Кнопка добавления в избранное -->
-            <div class="flex-shrink-3">
-                {% if product.id in wishlist_ids %}
-                    {% include 'wishlist/partials/toggle_btn.html' with product=product is_in_wishlist=True %}
-                {% else %}
-                    {% include 'wishlist/partials/toggle_btn.html' with product=product is_in_wishlist=False %}
-                {% endif %}
-            </div>
-
-            <!-- Product Details -->
-            <div class="border-t border-gray-200 pt-6">
-                <h3 class="text-sm font-medium text-gray-900 mb-3">ДЕТАЛИ</h3>
-                <div class="prose prose-sm text-gray-600">
-                    <p>{{ product.description|linebreaks }}</p>
-                </div>
+            <div class="text-center">
+                <h3 class="text-sm font-medium text-gray-900 mb-1">{{ rp.name|upper }}</h3>
+                <p class="text-sm text-gray-600 mb-1">{{ rp.color|upper }}</p>
+                <p class="text-sm font-medium">₽{{ rp.price }}</p>
             </div>
         </div>
+        {% endfor %}
     </div>
+</div>
+{% endif %}
 
-    <!-- Related Products -->
-    {% if related_products %}
-    <div class="mt-16 border-t border-gray-200 pt-16">
-        <h2 class="text-xl font-bold tracking-tight text-gray-900 mb-8">ВАМ ТАКЖЕ МОГУТ ПОНРАВИТЬСЯ</h2>
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {% for rp in related_products %}
-            <div class="product-card group cursor-pointer" 
-                 hx-get="{% url 'main:product_detail' rp.slug %}"
-                 hx-target="#main-content"
-                 hx-push-url="true">
-                <div class="aspect-square overflow-hidden bg-gray-100 rounded-lg mb-4">
-                    {% if rp.main_image %}
-                        <img src="{{ rp.main_image.url }}" 
-                             alt="{{ rp.name }}" 
-                             class="product-image w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
-                    {% else %}
-                        <div class="bg-gray-200 flex items-center justify-center h-full">
-                            <span class="text-gray-400 text-sm">Нет фото</span>
-                        </div>
-                    {% endif %}
-                </div>
-                <div class="text-center">
-                    <h3 class="text-sm font-medium text-gray-900 mb-1">{{ rp.name|upper }}</h3>
-                    <p class="text-sm text-gray-600 mb-1">{{ rp.color|upper }}</p>
-                    <p class="text-sm font-medium">₽{{ rp.price }}</p>
-                </div>
-            </div>
-            {% endfor %}
-        </div>
-    </div>
-    {% endif %}
-</main>
 
 <style>
     /* Скрываем радио-кнопки визуально, но оставляем доступными для клавиатуры */
