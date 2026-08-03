@@ -121,6 +121,19 @@ class ProductDetailView(WishlistContextMixin, DetailView):
     slug_url_kwarg = 'slug'
     context_object_name = 'product'
 
+    
+    def get(self, request, *args, **kwargs):
+        # ✅ 1. Явно получаем товар. Это установит self.object, который нужен Django
+        self.object = self.get_object()
+        
+        # ✅ 2. Формируем контекст (теперь self.object уже существует)
+        context = self.get_context_data()
+        
+        # ✅ 3. Возвращаем нужный шаблон
+        if request.headers.get('HX-Request'):
+            return TemplateResponse(request, self.partial_template_name, context)
+        return TemplateResponse(request, self.template_name, context)
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         product = self.get_object()
