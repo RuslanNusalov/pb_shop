@@ -83,7 +83,7 @@ def profile_view(request):
     }
 
     if request.headers.get('HX-Request'):
-        return TemplateResponse(request, 'users/profile.html', context)
+        return TemplateResponse(request, 'users/partials/profile_content.html', context)
     return TemplateResponse(request, 'users/profile_page.html', context)
 
 

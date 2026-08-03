@@ -19,6 +19,7 @@ class IndexView(WishlistContextMixin, TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['banners'] = Banner.objects.filter(is_active=True)
+        context['categories'] = Category.objects.all()
         context['current_category_slug'] = None
         context['new_products'] = Product.objects.filter(is_active=True).order_by('-created_at')[:8]
         return context
