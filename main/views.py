@@ -147,3 +147,4 @@ class ProductDetailView(WishlistContextMixin, DetailView):
         if request.headers.get('HX-Request'):
             return TemplateResponse(request, self.partial_template_name, self.get_context_data())
         return super().get(request, *args, **kwargs)
+    
