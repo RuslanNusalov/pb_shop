@@ -480,6 +480,49 @@
                 target.classList.add('fade-in');
             }
         });
+        // Функция инициализации мобильного меню
+        function initMobileMenu() {
+            const menuToggle = document.getElementById('menuToggle');
+            const closeMenu = document.getElementById('closeMenu');
+            const mobileMenu = document.getElementById('mobileMenu');
+            const overlay = document.getElementById('overlay');
+            
+            if (!menuToggle || !mobileMenu) return; // Элементы не найдены
+            
+            function openMobileMenu() {
+                mobileMenu.classList.add('open');
+                overlay.classList.add('active');
+                menuToggle.classList.add('active');
+                document.body.style.overflow = 'hidden';
+            }
+
+            function closeMobileMenu() {
+                mobileMenu.classList.remove('open');
+                overlay.classList.remove('active');
+                menuToggle.classList.remove('active');
+                document.body.style.overflow = '';
+            }
+
+            // Удаляем старые обработчики (чтобы не дублировались)
+            menuToggle.replaceWith(menuToggle.cloneNode(true));
+            closeMenu.replaceWith(closeMenu.cloneNode(true));
+            overlay.replaceWith(overlay.cloneNode(true));
+            
+            // Получаем свежие ссылки на элементы
+            const newMenuToggle = document.getElementById('menuToggle');
+            const newCloseMenu = document.getElementById('closeMenu');
+            const newOverlay = document.getElementById('overlay');
+            
+            if (newMenuToggle) newMenuToggle.addEventListener('click', openMobileMenu);
+            if (newCloseMenu) newCloseMenu.addEventListener('click', closeMobileMenu);
+            if (newOverlay) newOverlay.addEventListener('click', closeMobileMenu);
+        }
+
+        // Инициализируем при загрузке страницы
+        document.addEventListener('DOMContentLoaded', initMobileMenu);
+
+        // Инициализируем после каждого HTMX-запроса
+        document.addEventListener('htmx:afterSwap', initMobileMenu);
     </script>
     <!-- Footer -->
     <footer class="bg-black text-white pt-12 pb-8 mt-auto">
