@@ -245,20 +245,20 @@
                         </button>
                     </div>
                     <a href="{% url 'users:profile' %}" 
-                    {% comment %} hx-get="{% url 'users:profile' %}" 
+                    hx-get="{% url 'users:profile' %}" 
                     hx-target="#main-content" 
-                    hx-push-url="true" {% endcomment %}
+                    hx-push-url="true"
                     class="text-sm font-medium text-gray-900 uppercase hover:text-gray-600">
                         ЛИЧНЫЙ КАБИНЕТ
                     </a>
                     <!-- ❤️ ИЗБРАННОЕ (Desktop) -->
                     <a href="{% url 'wishlist:list' %}" 
-                    {% comment %} hx-get="{% url 'wishlist:list' %}" 
+                    hx-get="{% url 'wishlist:list' %}" 
                     hx-target="#main-content" 
                     hx-push-url="true"
-                    id="wishlist-link-desktop" {% endcomment %}
+                    id="wishlist-link-desktop"
                     class="text-sm font-medium text-gray-900 hover:text-gray-600 relative">
-                        ИЗБРАННОE (<span id="wishlist-count">{{ wishlist_count }}</span>)
+                        ИЗБРАННОE (<span id="wishlist-count">{{ wishlist_count|default:0 }}</span>)
                     </a>
                     <a href="#" id="desktopCart" class="text-sm font-medium text-gray-900 hover:text-gray-700">КОРЗИНА (0)</a>
                 </div>
@@ -328,7 +328,7 @@
             overlay.addEventListener('click', closeMobileMenu);
     
             // Close mobile menu after navigation
-            document.addEventListener('htmx:afterRequest', function() {
+            document.addEventListener('htmx:afterSettle', function() {
                 closeMobileMenu();
             });
     
@@ -464,12 +464,20 @@
                 setTimeout(() => toast.remove(), 300);
             }, 3500);
         }
-    </script>
-    <script>
         document.body.addEventListener('htmx:configRequest', (event) => {
             const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
             if (token) {
                 event.detail.headers['X-CSRFToken'] = token;
+            }
+        });
+        // Используем событие HTMX вместо DOMContentLoaded
+        document.body.addEventListener('htmx:afterSwap', function(event) {
+            // Добавляем класс анимации к целевому элементу
+            const target = event.detail.target;
+            if(target) {
+                target.classList.remove('fade-in'); // Сброс для перезапуска
+                void target.offsetWidth; // Триггер рефлоу
+                target.classList.add('fade-in');
             }
         });
     </script>
