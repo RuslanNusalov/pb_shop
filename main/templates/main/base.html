@@ -8,6 +8,8 @@
     <title>{% block title %}Правый берег{% endblock %}</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" />
+
     {% comment %} <script>
     // Авто-подстановка CSRF для всех HTMX POST-запросов
     document.body.addEventListener('htmx:configRequest', (event) => {
@@ -301,134 +303,76 @@
         </main> {% endcomment %}
         {% endblock %}
     </div>
+    <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            // Mobile menu functionality
+        // === Инициализация мобильного меню ===
+        function initMobileMenu() {
             const menuToggle = document.getElementById('menuToggle');
             const closeMenu = document.getElementById('closeMenu');
             const mobileMenu = document.getElementById('mobileMenu');
             const overlay = document.getElementById('overlay');
-    
+            
+            if (!menuToggle || !mobileMenu || !overlay) return;
+            
             function openMobileMenu() {
                 mobileMenu.classList.add('open');
                 overlay.classList.add('active');
                 menuToggle.classList.add('active');
                 document.body.style.overflow = 'hidden';
             }
-    
+
             function closeMobileMenu() {
                 mobileMenu.classList.remove('open');
                 overlay.classList.remove('active');
                 menuToggle.classList.remove('active');
                 document.body.style.overflow = '';
             }
-    
-            menuToggle.addEventListener('click', openMobileMenu);
-            closeMenu.addEventListener('click', closeMobileMenu);
-            overlay.addEventListener('click', closeMobileMenu);
-    
-            // Close mobile menu after navigation
-            document.addEventListener('htmx:afterSettle', function() {
-                closeMobileMenu();
-            });
-    
-            // Cart functionality
-            const desktopCart = document.getElementById('desktopCart');
-            const mobileCart = document.getElementById('mobileCart');
-            const mobileCartHeader = document.getElementById('mobileCartHeader');
+
+            // Используем onclick для предотвращения дублирования
+            menuToggle.onclick = openMobileMenu;
+            closeMenu.onclick = closeMobileMenu;
+            overlay.onclick = closeMobileMenu;
+        }
+
+        // === Инициализация Swiper ===
+        function initSwipers() {
+            if (typeof Swiper === 'undefined') return;
             
-            // Get initial cart count
-            updateCartCount();
+            // Уничтожаем старые экземпляры
+            if (window.mainSwiper) window.mainSwiper.destroy(true, true);
+            if (window.productSwiper) window.productSwiper.destroy(true, true);
             
-            function updateHeaderCartCount(count) {
-                const cartText = `КОРЗИНА (${count})`;
-                if (desktopCart) desktopCart.textContent = cartText;
-                if (mobileCart) mobileCart.textContent = cartText;
-                if (mobileCartHeader) mobileCartHeader.textContent = cartText;
-            }
-            
-            function updateCartCount() {
-                fetch('{% url "cart:cart_count" %}')
-                    .then(response => response.json())
-                    .then(data => {
-                        updateHeaderCartCount(data.total_items);
-                    });
-            }
-    
-            function openCart() {
-                htmx.ajax('GET', '{% url "cart:cart_modal" %}', {
-                    target: '#cart-container',
-                    swap: 'innerHTML'
-                });
-            }
-    
-            [desktopCart, mobileCart, mobileCartHeader].forEach(cartLink => {
-                if (cartLink) {
-                    cartLink.addEventListener('click', function(e) {
-                        e.preventDefault();
-                        openCart();
-                    });
-                }
-            });
-    
-            // Close mobile menu on window resize
-            window.addEventListener('resize', function() {
-                if (window.innerWidth >= 768) {
-                    closeMobileMenu();
-                }
-            });
-    
-            // Update active navigation links after HTMX requests
-            document.addEventListener('htmx:afterSettle', function() {
-                updateActiveNavLinks();
-            });
-    
-            function updateActiveNavLinks() {
-                const currentPath = window.location.pathname.replace(/\/$/, ''); // Убираем trailing slash
-                const navLinks = document.querySelectorAll('.nav-link, .mobile-nav-link');
-                
-                navLinks.forEach(link => {
-                    link.classList.remove('active');
-                    const linkPath = link.getAttribute('href').replace(/\/$/, '');
-                    if (linkPath === currentPath || currentPath.startsWith(linkPath + '/')) {
-                        link.classList.add('active');
-                    }
+            // Главный слайдер (баннеры)
+            const bannerSwiperEl = document.querySelector('.main-swiper');
+            if (bannerSwiperEl) {
+                window.mainSwiper = new Swiper(bannerSwiperEl, {
+                    loop: true,
+                    autoplay: { delay: 5000, disableOnInteraction: false },
+                    navigation: { nextEl: '.swiper-button-next', prevEl: '.swiper-button-prev' },
+                    effect: 'fade',
+                    fadeEffect: { crossFade: true }
                 });
             }
             
-        // Listen for cart updates
-        document.addEventListener('cartUpdated', function(e) {
-            if (e.detail && e.detail.total !== undefined) {
-                document.querySelectorAll('.cart-count').forEach(el => el.textContent = e.detail.total);
-                updateHeaderCartCount(e.detail.total); // Дополнительная подстраховка
+            // Слайдер новинок
+            const productSwiperEl = document.querySelector('.product-swiper');
+            if (productSwiperEl) {
+                window.productSwiper = new Swiper(productSwiperEl, {
+                    slidesPerView: 2,
+                    spaceBetween: 16,
+                    breakpoints: {
+                        640: { slidesPerView: 3, spaceBetween: 20 },
+                        768: { slidesPerView: 3, spaceBetween: 20 },
+                        1024: { slidesPerView: 4, spaceBetween: 24 },
+                    },
+                    navigation: { nextEl: '.swiper-button-next', prevEl: '.swiper-button-prev' },
+                });
             }
-        });
-        // === Слушатель обновления избранного (HTMX) ===
-        document.addEventListener('wishlistUpdated', function(e) {
-            if (e.detail?.count === undefined) return;
-            
-            const count = e.detail.count;
-            
-            // Обновляем все элементы со счётчиком
-            document.querySelectorAll('#wishlist-count, .wishlist-count-mobile').forEach(el => {
-                if (el) el.textContent = count;
-            });
-            
-            // Обновляем текст ссылок (если нужно)
-            ['wishlist-link-desktop', 'wishlist-link-mobile'].forEach(id => {
-                const link = document.getElementById(id);
-                if (link) {
-                const text = link.textContent;
-                // Безопасное извлечение префикса
-                const match = text.match(/^([^(]+)\(/);
-                const prefix = match ? match[1].trim() : 'ИЗБРАННОЕ';
-                link.textContent = `${prefix} (${count})`;
-                }
-            });
-        });
-    
+        }
+
+        // === Глобальные функции ===
         
-        // Global function to update cart count
+        // Обновление счётчика корзины в хедере
         window.updateHeaderCartCount = function(count) {
             const desktopCart = document.getElementById('desktopCart');
             const mobileCart = document.getElementById('mobileCart');
@@ -439,9 +383,9 @@
             if (mobileCart) mobileCart.textContent = cartText;
             if (mobileCartHeader) mobileCartHeader.textContent = cartText;
         };
-        // ✅ Глобальная функция показа уведомлений
-        function showToast(message, type = 'success') {
-            // Удаляем старые тосты, чтобы не наслаивались
+        
+        // Показ уведомлений (тостов)
+        window.showToast = function(message, type = 'success') {
             document.querySelectorAll('.toast-notification').forEach(el => el.remove());
             
             const toast = document.createElement('div');
@@ -453,76 +397,142 @@
             
             document.body.appendChild(toast);
             
-            // Анимация появления
             requestAnimationFrame(() => {
                 toast.classList.remove('translate-y-2', 'opacity-0');
             });
             
-            // Авто-удаление через 3.5 сек
             setTimeout(() => {
                 toast.classList.add('translate-y-2', 'opacity-0');
                 setTimeout(() => toast.remove(), 300);
             }, 3500);
+        };
+
+        // === Корзина ===
+        
+        function updateCartCount() {
+            fetch('{% url "cart:cart_count" %}')
+                .then(response => response.json())
+                .then(data => {
+                    window.updateHeaderCartCount(data.total_items);
+                })
+                .catch(err => console.error('Ошибка обновления корзины:', err));
         }
+        
+        function openCart() {
+            htmx.ajax('GET', '{% url "cart:cart_modal" %}', {
+                target: '#cart-container',
+                swap: 'innerHTML'
+            });
+        }
+
+        // === Запуск при загрузке и после HTMX ===
+        document.addEventListener('DOMContentLoaded', function() {
+            initMobileMenu();
+            initSwipers();
+            updateCartCount();
+            
+            // Обработчики корзины
+            const desktopCart = document.getElementById('desktopCart');
+            const mobileCart = document.getElementById('mobileCart');
+            const mobileCartHeader = document.getElementById('mobileCartHeader');
+            
+            [desktopCart, mobileCart, mobileCartHeader].forEach(cartLink => {
+                if (cartLink) {
+                    cartLink.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        openCart();
+                    });
+                }
+            });
+        });
+        
+        document.addEventListener('htmx:afterSwap', function(event) {
+            initMobileMenu();
+            initSwipers();
+            
+            // Анимация fade-in
+            const target = event.detail.target;
+            if (target && target.classList.contains('fade-in')) {
+                target.classList.remove('fade-in');
+                void target.offsetWidth;
+                target.classList.add('fade-in');
+            }
+            
+            // Закрываем мобильное меню после успешного перехода
+            const mobileMenu = document.getElementById('mobileMenu');
+            const overlay = document.getElementById('overlay');
+            const menuToggle = document.getElementById('menuToggle');
+            if (mobileMenu && mobileMenu.classList.contains('open')) {
+                mobileMenu.classList.remove('open');
+                overlay?.classList.remove('active');
+                menuToggle?.classList.remove('active');
+                document.body.style.overflow = '';
+            }
+        });
+
+        // === Слушатели событий ===
+        
+        // Обновление корзины
+        document.addEventListener('cartUpdated', function(e) {
+            if (e.detail && e.detail.total !== undefined) {
+                document.querySelectorAll('.cart-count').forEach(el => el.textContent = e.detail.total);
+                window.updateHeaderCartCount(e.detail.total);
+            }
+        });
+        
+        // Обновление избранного
+        document.addEventListener('wishlistUpdated', function(e) {
+            if (e.detail?.count === undefined) return;
+            
+            const count = e.detail.count;
+            
+            document.querySelectorAll('#wishlist-count, .wishlist-count-mobile').forEach(el => {
+                if (el) el.textContent = count;
+            });
+            
+            ['wishlist-link-desktop', 'wishlist-link-mobile'].forEach(id => {
+                const link = document.getElementById(id);
+                if (link) {
+                    const text = link.textContent;
+                    const match = text.match(/^([^(]+)\(/);
+                    const prefix = match ? match[1].trim() : 'ИЗБРАННОЕ';
+                    link.textContent = `${prefix} (${count})`;
+                }
+            });
+        });
+        
+        // Обновление активных ссылок навигации
+        document.addEventListener('htmx:afterSettle', function() {
+            const currentPath = window.location.pathname.replace(/\/$/, '');
+            document.querySelectorAll('.nav-link, .mobile-nav-link').forEach(link => {
+                link.classList.remove('active');
+                const linkPath = link.getAttribute('href').replace(/\/$/, '');
+                if (linkPath === currentPath || currentPath.startsWith(linkPath + '/')) {
+                    link.classList.add('active');
+                }
+            });
+        });
+        
+        // Закрытие меню при ресайзе
+        window.addEventListener('resize', function() {
+            if (window.innerWidth >= 768) {
+                const mobileMenu = document.getElementById('mobileMenu');
+                const overlay = document.getElementById('overlay');
+                const menuToggle = document.getElementById('menuToggle');
+                mobileMenu?.classList.remove('open');
+                overlay?.classList.remove('active');
+                menuToggle?.classList.remove('active');
+                document.body.style.overflow = '';
+            }
+        });
+
+        // === CSRF для HTMX ===
         document.body.addEventListener('htmx:configRequest', (event) => {
             const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
             if (token) {
                 event.detail.headers['X-CSRFToken'] = token;
             }
         });
-        // Используем событие HTMX вместо DOMContentLoaded
-        document.body.addEventListener('htmx:afterSwap', function(event) {
-            // Добавляем класс анимации к целевому элементу
-            const target = event.detail.target;
-            if(target) {
-                target.classList.remove('fade-in'); // Сброс для перезапуска
-                void target.offsetWidth; // Триггер рефлоу
-                target.classList.add('fade-in');
-            }
-        });
-        // Функция инициализации мобильного меню
-        function initMobileMenu() {
-            const menuToggle = document.getElementById('menuToggle');
-            const closeMenu = document.getElementById('closeMenu');
-            const mobileMenu = document.getElementById('mobileMenu');
-            const overlay = document.getElementById('overlay');
-            
-            if (!menuToggle || !mobileMenu) return; // Элементы не найдены
-            
-            function openMobileMenu() {
-                mobileMenu.classList.add('open');
-                overlay.classList.add('active');
-                menuToggle.classList.add('active');
-                document.body.style.overflow = 'hidden';
-            }
-
-            function closeMobileMenu() {
-                mobileMenu.classList.remove('open');
-                overlay.classList.remove('active');
-                menuToggle.classList.remove('active');
-                document.body.style.overflow = '';
-            }
-
-            // Удаляем старые обработчики (чтобы не дублировались)
-            menuToggle.replaceWith(menuToggle.cloneNode(true));
-            closeMenu.replaceWith(closeMenu.cloneNode(true));
-            overlay.replaceWith(overlay.cloneNode(true));
-            
-            // Получаем свежие ссылки на элементы
-            const newMenuToggle = document.getElementById('menuToggle');
-            const newCloseMenu = document.getElementById('closeMenu');
-            const newOverlay = document.getElementById('overlay');
-            
-            if (newMenuToggle) newMenuToggle.addEventListener('click', openMobileMenu);
-            if (newCloseMenu) newCloseMenu.addEventListener('click', closeMobileMenu);
-            if (newOverlay) newOverlay.addEventListener('click', closeMobileMenu);
-        }
-
-        // Инициализируем при загрузке страницы
-        document.addEventListener('DOMContentLoaded', initMobileMenu);
-
-        // Инициализируем после каждого HTMX-запроса
-        document.addEventListener('htmx:afterSwap', initMobileMenu);
     </script>
     <!-- Footer -->
     <footer class="bg-black text-white pt-12 pb-8 mt-auto">
