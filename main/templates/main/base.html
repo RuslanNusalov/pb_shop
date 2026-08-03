@@ -151,17 +151,17 @@
             
             <nav class="space-y-6">
                 <a href="{% url 'main:index' %}" 
-                   {% comment %} hx-get="{% url 'main:index' %}" 
+                   hx-get="{% url 'main:index' %}" 
                    hx-target="#main-content" 
-                   hx-push-url="true" {% endcomment %}
+                   hx-push-url="true"
                    class="mobile-nav-link block text-lg font-medium text-gray-900 hover:text-gray-700 py-2 border-b border-gray-200">
                    ГЛАВНАЯ
                 </a>
                 {% for category in categories %}
                 <a href="{% url 'main:catalog' category.slug %}" 
-                   {% comment %} hx-get="{% url 'main:catalog' category.slug %}" 
+                   hx-get="{% url 'main:catalog' category.slug %}" 
                    hx-target="#main-content" 
-                   hx-push-url="true" {% endcomment %}
+                   hx-push-url="true"
                    class="mobile-nav-link block text-lg font-medium text-gray-900 hover:text-gray-700 py-2 border-b border-gray-200 {% if current_category == category.slug %}active{% endif %}">
                    {{ category.name|upper }}
                 </a>
@@ -170,24 +170,24 @@
             
             <div class="mt-8 space-y-4">
                 <a href="{% url 'main:catalog_all' %}?show_search=true"
-                    {% comment %} hx-get="{% url 'main:catalog_all' %}?show_search=true"
+                    hx-get="{% url 'main:catalog_all' %}?show_search=true"
                     hx-target="#main-content"
-                    hx-swap="innerHTML" {% endcomment %}
+                    hx-swap="innerHTML"
                     class="block text-sm font-medium text-gray-900 hover:text-gray-700 py-2">
                     ПОИСК
                 </a>
                 <a href="{% url 'users:profile' %}" 
-                {% comment %} hx-get="{% url 'users:profile' %}" 
+                hx-get="{% url 'users:profile' %}" 
                 hx-target="#main-content" 
-                hx-push-url="true" {% endcomment %}
+                hx-push-url="true"
                 class="text-sm font-medium text-gray-900 uppercase hover:text-gray-600">
                     ЛИЧНЫЙ КАБИНЕТ
                 </a>
                 <!-- ❤️ ИЗБРАННОЕ (Mobile) -->
                 <a href="{% url 'wishlist:list' %}" 
-                {% comment %} hx-get="{% url 'wishlist:list' %}" 
+                hx-get="{% url 'wishlist:list' %}" 
                 hx-target="#main-content" 
-                hx-push-url="true" {% endcomment %}
+                hx-push-url="true"
                 id="wishlist-link-mobile"
                 class="block text-sm font-medium text-gray-900 hover:text-gray-700 py-2">
                     ИЗБРАННОE (<span class="wishlist-count-mobile">{{ wishlist_count|default:0 }}</span>)
@@ -211,9 +211,9 @@
                 <!-- Logo -->
                 <div class="flex-shrink-0">
                     <a href="{% url 'main:index' %}" 
-                       {% comment %} hx-get="{% url 'main:index' %}" 
+                       hx-get="{% url 'main:index' %}" 
                        hx-target="#main-content" 
-                       hx-push-url="true"> {% endcomment %}
+                       hx-push-url="true">
                         <h1 class="text-sm sm:text-lg font-bold tracking-tight text-left">
                             ПРАВЫЙ БЕРЕГ <br>
                         </h1>
@@ -224,9 +224,9 @@
                 <nav class="hidden md:flex space-x-8">
                     {% for category in categories %}
                     <a href="{% url 'main:catalog' category.slug %}" 
-                       {% comment %} hx-get="{% url 'main:catalog' category.slug %}" 
+                       hx-get="{% url 'main:catalog' category.slug %}" 
                        hx-target="#main-content" 
-                       hx-push-url="true" {% endcomment %}
+                       hx-push-url="true"
                        class="nav-link text-sm font-medium text-gray-900 hover:text-gray-700 {% if current_category == category.slug %}active{% endif %}">
                        {{ category.name | upper }}
                     </a>
@@ -245,17 +245,17 @@
                         </button>
                     </div>
                     <a href="{% url 'users:profile' %}" 
-                    {% comment %} hx-get="{% url 'users:profile' %}" 
+                    hx-get="{% url 'users:profile' %}" 
                     hx-target="#main-content" 
-                    hx-push-url="true" {% endcomment %}
+                    hx-push-url="true"
                     class="text-sm font-medium text-gray-900 uppercase hover:text-gray-600">
                         ЛИЧНЫЙ КАБИНЕТ
                     </a>
                     <!-- ❤️ ИЗБРАННОЕ (Desktop) -->
                     <a href="{% url 'wishlist:list' %}" 
-                    {% comment %} hx-get="{% url 'wishlist:list' %}" 
+                    hx-get="{% url 'wishlist:list' %}" 
                     hx-target="#main-content" 
-                    hx-push-url="true" {% endcomment %}
+                    hx-push-url="true"
                     id="wishlist-link-desktop"
                     class="text-sm font-medium text-gray-900 hover:text-gray-600 relative">
                         ИЗБРАННОE (<span id="wishlist-count">{{ wishlist_count|default:0 }}</span>)
