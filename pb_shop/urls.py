@@ -14,6 +14,7 @@ urlpatterns = [
 ]
 
 # ✅ Явная отдача медиа-фافайлов в продакшене
-urlpatterns += [
-    path('media/<path:path>', serve, {'document_root': settings.MEDIA_ROOT}),
-]
+if not settings.DEBUG:
+    urlpatterns += [
+        path('media/<path:path>', serve, {'document_root': settings.MEDIA_ROOT}),
+    ]
