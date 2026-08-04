@@ -28,18 +28,22 @@ RUN poetry install --no-root --no-ansi --only main
 # Код проекта
 COPY . .
 
-# Сборка статики (Amvera смонтирует volume поверх, но collectstatic нужен)
-RUN python manage.py collectstatic --noinput
+# Копируем entrypoint
+COPY entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
 
 # Права доступа
 RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
 USER appuser
 
+# Создаём папку для медиа
+RUN mkdir -p /app/media && chown appuser:appuser /app/media
+
 EXPOSE 8000
 
-# Healthcheck для Amvera
-HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/admin/')" || exit 1
+# Healthcheck: проверяем корень сайта
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/')" || exit 1
 
-# Запускаем миграции → стартуем сервер
-CMD ["sh", "-c", "python manage.py migrate --noinput && gunicorn pb_shop.wsgi:application --bind 0.0.0.0:8000 --workers 3 --threads 2 --timeout 120"]
+# Запускаем entrypoint
+CMD ["/app/entrypoint.sh"]

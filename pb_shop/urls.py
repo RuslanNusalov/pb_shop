@@ -13,8 +13,9 @@ urlpatterns = [
     path('wishlist/', include('wishlist.urls')),
 ]
 
-# ✅ Явная отдача медиа-фافайлов в продакшене
-if not settings.DEBUG:
-    urlpatterns += [
-        path('media/<path:path>', serve, {'document_root': '/data/media'}),
-    ]
+# ✅ Раздача медиа-файлов (работает и при DEBUG=True, и при DEBUG=False)
+urlpatterns += [
+    path('media/<path:path>', serve, {
+        'document_root': settings.MEDIA_ROOT,  # Django сам подставит правильный путь
+    }),
+]
