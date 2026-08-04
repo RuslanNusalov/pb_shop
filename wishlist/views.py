@@ -33,7 +33,7 @@ class ToggleWishlistView(View):
         product_size = get_object_or_404(ProductSize, id=size_id)
         wishlist, _ = Wishlist.objects.get_or_create(user=request.user)
 
-        if product_size in wishlist.products.all():
+        if wishlist.products.filter(id=product_size.id).exists():
             wishlist.products.remove(product_size)
             is_in = False
         else:
@@ -95,6 +95,8 @@ class GetWishlistToggleBtn(View):
     """Возвращает HTML кнопки избранного для конкретного РАЗМЕРА"""
     def get(self, request, product_id, size_id):
         product_size = get_object_or_404(ProductSize, id=size_id)
+
+        wishlist = None
 
         # ✅ ПРАВИЛЬНАЯ ПРОВЕРКА: ищем именно ProductSize в избранном
         is_in = False
