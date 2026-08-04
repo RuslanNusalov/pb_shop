@@ -150,7 +150,7 @@ STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'static'
 
 MEDIA_URL = '/media/'
-MEDIA_ROOT = '/data'
+MEDIA_ROOT = BASE_DIR / 'media'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
@@ -189,12 +189,17 @@ CSRF_TRUSTED_ORIGINS = [
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.getenv('POSTGRES_DB', 'pb_shop'),
-        'USER': os.getenv('POSTGRES_USER', 'pb_shop'),
-        'PASSWORD': os.getenv('POSTGRES_PASSWORD', 'pb_shop'),
-        'HOST': os.getenv('POSTGRES_HOST', 'localhost'),
-        'PORT': os.getenv('POSTGRES_PORT', '5432'),
-        'CONN_MAX_AGE': 600,  # keep-alive для Gunicorn
+        
+        # ✅ Переменные Amvera (с фоллбэком на локальные для разработки)
+        'NAME': os.getenv('PGDATABASE', os.getenv('POSTGRES_DB', 'pb_shop')),
+        'USER': os.getenv('PGUSER', os.getenv('POSTGRES_USER', 'pb_shop')),
+        'PASSWORD': os.getenv('PGPASSWORD', os.getenv('POSTGRES_PASSWORD', 'pb_shop')),
+        'HOST': os.getenv('PGHOST', os.getenv('POSTGRES_HOST', 'localhost')),
+        'PORT': os.getenv('PGPORT', os.getenv('POSTGRES_PORT', '5432')),
+        
+        # Оптимизация соединений
+        'CONN_MAX_AGE': 600,
+        'CONN_HEALTH_CHECKS': True,
     }
 }
 
