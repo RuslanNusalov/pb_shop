@@ -358,73 +358,86 @@
             overlay.onclick = closeMobileMenu;
         }
 
-        // === Инициализация кнопок выбора размера (для product_detail) ===
+        // === Инициализация кнопок выбора размера (для product_detail БЕЗОПАСНАЯ ВЕРСИЯ) ===
         function initSizeButtons() {
-            // Проверяем, что мы на странице товара
-            const sizeSelector = document.getElementById('size-selector');
-            const addToCartBtn = document.getElementById('add-to-cart-btn');
-            const sizeInput = document.getElementById('selected-size-id');
-            const btnText = document.getElementById('btn-text');
-            
-            // Если элементов нет — выходим (мы не на странице товара)
-            if (!sizeSelector || !addToCartBtn || !sizeInput) return;
-            
-            const sizeLabels = document.querySelectorAll('.size-label');
-            const sizeRadios = document.querySelectorAll('input[name="size_id"]');
-            
-            // Функция активации кнопки "В корзину"
-            function activateButton(radio) {
-                if (!radio || radio.disabled) return;
+            try {
+                // 🔍 Быстрая проверка: если нет ключевых элементов — выходим сразу
+                const sizeSelector = document.getElementById('size-selector');
+                const addToCartBtn = document.getElementById('add-to-cart-btn');
+                const sizeInput = document.getElementById('selected-size-id');
                 
-                sizeInput.value = radio.value;
-                addToCartBtn.disabled = false;
-                if (btnText) btnText.textContent = 'ДОБАВИТЬ В КОРЗИНУ';
+                // Если хоть одного элемента нет — мы НЕ на странице товара
+                if (!sizeSelector || !addToCartBtn || !sizeInput) {
+                    return; // Тихо выходим, без ошибок в консоли
+                }
                 
-                // Визуальное выделение
-                sizeLabels.forEach(l => l.classList.remove('selected'));
-                radio.closest('.size-label')?.classList.add('selected');
-            }
-            
-            // Вешаем обработчики (с защитой от дублирования)
-            if (!addToCartBtn.dataset.sizeHandlersAttached) {
-                // Клик по label
-                sizeLabels.forEach(label => {
-                    label.addEventListener('click', function(e) {
-                        const radio = this.querySelector('input[name="size_id"]');
-                        if (!radio || radio.disabled) {
-                            e.preventDefault();
-                            return;
-                        }
-                        radio.checked = true;
-                        activateButton(radio);
+                const sizeLabels = document.querySelectorAll('.size-label');
+                const sizeRadios = document.querySelectorAll('input[name="size_id"]');
+                
+                // Если нет размеров — тоже выходим
+                if (sizeLabels.length === 0 || sizeRadios.length === 0) return;
+                
+                // Функция активации кнопки "В корзину"
+                function activateButton(radio) {
+                    if (!radio || radio.disabled) return;
+                    
+                    const btnText = document.getElementById('btn-text');
+                    
+                    sizeInput.value = radio.value;
+                    addToCartBtn.disabled = false;
+                    if (btnText) btnText.textContent = 'ДОБАВИТЬ В КОРЗИНУ';
+                    
+                    // Визуальное выделение
+                    sizeLabels.forEach(l => l.classList.remove('selected'));
+                    radio.closest('.size-label')?.classList.add('selected');
+                }
+                
+                // Вешаем обработчики ТОЛЬКО один раз (защита от дублирования)
+                if (!addToCartBtn.dataset.sizeHandlersAttached) {
+                    // Клик по label
+                    sizeLabels.forEach(label => {
+                        label.addEventListener('click', function(e) {
+                            const radio = this.querySelector('input[name="size_id"]');
+                            if (!radio || radio.disabled) {
+                                e.preventDefault();
+                                return;
+                            }
+                            radio.checked = true;
+                            activateButton(radio);
+                        });
                     });
-                });
-                
-                // Change на radio
-                sizeRadios.forEach(radio => {
-                    radio.addEventListener('change', function() {
-                        if (!this.disabled) activateButton(this);
+                    
+                    // Change на radio
+                    sizeRadios.forEach(radio => {
+                        radio.addEventListener('change', function() {
+                            if (!this.disabled) activateButton(this);
+                        });
                     });
-                });
+                    
+                    // Помечаем, что обработчики уже навешаны
+                    addToCartBtn.dataset.sizeHandlersAttached = 'true';
+                    console.log('✅ Size button handlers attached');
+                }
                 
-                addToCartBtn.dataset.sizeHandlersAttached = 'true';
-            }
-            
-            // 🔥 Авто-выбор первого доступного размера при загрузке
-            const firstAvailable = document.querySelector('input[name="size_id"]:not(:disabled)');
-            const alreadyChecked = document.querySelector('input[name="size_id"]:checked');
-            
-            if (firstAvailable && !alreadyChecked) {
-                firstAvailable.checked = true;
-            }
-            
-            // Синхронизируем кнопку с текущим состоянием
-            const checked = document.querySelector('input[name="size_id"]:checked:not(:disabled)');
-            if (checked) {
-                activateButton(checked);
+                // 🔥 Авто-выбор первого доступного размера при загрузке
+                const firstAvailable = document.querySelector('input[name="size_id"]:not(:disabled)');
+                const alreadyChecked = document.querySelector('input[name="size_id"]:checked');
+                
+                if (firstAvailable && !alreadyChecked) {
+                    firstAvailable.checked = true;
+                }
+                
+                // Синхронизируем кнопку с текущим состоянием
+                const checked = document.querySelector('input[name="size_id"]:checked:not(:disabled)');
+                if (checked) {
+                    activateButton(checked);
+                }
+                
+            } catch (error) {
+                // 🛡️ Ловим любые ошибки, чтобы не ломать HTMX-навигацию
+                console.warn('⚠️ initSizeButtons error (не критично):', error.message);
             }
         }
-
         // === Инициализация Swiper ===
         function initSwipers() {
             if (typeof Swiper === 'undefined') return;
