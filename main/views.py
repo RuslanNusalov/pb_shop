@@ -22,9 +22,8 @@ class IndexView(WishlistContextMixin, TemplateView):
         context['categories'] = Category.objects.all()
         context['current_category_slug'] = None
         context['new_products'] = Product.objects.filter(
-            is_active=True, 
-            slug__isnull=False
-        ).exclude(slug='').order_by('-created_at')[:8]
+            is_active=True
+        ).exclude(slug__isnull=True).exclude(slug='').order_by('-created_at')[:8]
         return context
 
     def get(self, request, *args, **kwargs):
@@ -53,7 +52,9 @@ class CatalogView(WishlistContextMixin, TemplateView):
         current_category = None
 
         categories = Category.objects.all()
-        products = Product.objects.prefetch_related('category', 'product_sizes').all().order_by('-created_at')
+        products = Product.objects.prefetch_related('category', 'product_sizes').filter(
+            is_active=True
+        ).exclude(slug__isnull=True).exclude(slug='').order_by('-created_at')
 
         if category_slug:
             current_category = get_object_or_404(Category, slug=category_slug)
@@ -148,11 +149,7 @@ class ProductDetailView(WishlistContextMixin, DetailView):
         related_qs = Product.objects.filter(category=product.category).exclude(id=product.id)
         related_qs = related_qs.exclude(slug__isnull=True).exclude(slug='')
 
-        context['related_products'] = (
-            Product.objects.filter(category=product.category)
-            .exclude(id=product.id)[:4] 
-            if product.category else Product.objects.none()
-        )
+        context['related_products'] = related_qs.order_by('-created_at')[:4]
         
         if self.request.user.is_authenticated:
             context['wishlist_size_ids'] = set(
