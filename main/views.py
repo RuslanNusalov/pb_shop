@@ -21,7 +21,10 @@ class IndexView(WishlistContextMixin, TemplateView):
         context['banners'] = Banner.objects.filter(is_active=True)
         context['categories'] = Category.objects.all()
         context['current_category_slug'] = None
-        context['new_products'] = Product.objects.filter(is_active=True).order_by('-created_at')[:8]
+        context['new_products'] = Product.objects.filter(
+            is_active=True, 
+            slug__isnull=False
+        ).exclude(slug='').order_by('-created_at')[:8]
         return context
 
     def get(self, request, *args, **kwargs):
@@ -140,6 +143,11 @@ class ProductDetailView(WishlistContextMixin, DetailView):
         
         context['categories'] = Category.objects.all()
         context['current_category'] = product.category
+
+        # ✅ ФИЛЬТРУЕМ: исключаем текущий товар И товары с пустым slug
+        related_qs = Product.objects.filter(category=product.category).exclude(id=product.id)
+        related_qs = related_qs.exclude(slug__isnull=True).exclude(slug='')
+
         context['related_products'] = (
             Product.objects.filter(category=product.category)
             .exclude(id=product.id)[:4] 
