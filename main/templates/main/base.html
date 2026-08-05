@@ -130,6 +130,31 @@
     .htmx-request.htmx-indicator {
         opacity: 1;
     }
+    /* === Стили для кнопок выбора размера === */
+    .size-radio {
+        position: absolute;
+        opacity: 0;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+    }
+
+    .size-label.selected {
+        background-color: #000 !important;
+        color: #fff !important;
+        border-color: #000 !important;
+    }
+
+    .size-label:has(.size-radio:disabled) {
+        opacity: 0.4;
+        cursor: not-allowed;
+        background-color: #f9fafb;
+    }
 </style>
 
 </head>
@@ -333,35 +358,71 @@
             overlay.onclick = closeMobileMenu;
         }
 
-        // === Инициализация кнопок выбора размера (НОВОЕ!) ===
+        // === Инициализация кнопок выбора размера (для product_detail) ===
         function initSizeButtons() {
-            // 🔍 Замени '.size-btn' на реальный класс твоих кнопок в product_detail.html
-            const sizeButtons = document.querySelectorAll('.size-btn');
+            // Проверяем, что мы на странице товара
+            const sizeSelector = document.getElementById('size-selector');
+            const addToCartBtn = document.getElementById('add-to-cart-btn');
+            const sizeInput = document.getElementById('selected-size-id');
+            const btnText = document.getElementById('btn-text');
             
-            sizeButtons.forEach(btn => {
-                // Используем onclick вместо addEventListener, чтобы не дублировать при HTMX
-                btn.onclick = function(e) {
-                    e.preventDefault();
-                    
-                    // Убираем активный класс со всех кнопок
-                    document.querySelectorAll('.size-btn').forEach(b => {
-                        b.classList.remove('active', 'selected', 'ring-2', 'ring-black');
-                        b.setAttribute('aria-selected', 'false');
+            // Если элементов нет — выходим (мы не на странице товара)
+            if (!sizeSelector || !addToCartBtn || !sizeInput) return;
+            
+            const sizeLabels = document.querySelectorAll('.size-label');
+            const sizeRadios = document.querySelectorAll('input[name="size_id"]');
+            
+            // Функция активации кнопки "В корзину"
+            function activateButton(radio) {
+                if (!radio || radio.disabled) return;
+                
+                sizeInput.value = radio.value;
+                addToCartBtn.disabled = false;
+                if (btnText) btnText.textContent = 'ДОБАВИТЬ В КОРЗИНУ';
+                
+                // Визуальное выделение
+                sizeLabels.forEach(l => l.classList.remove('selected'));
+                radio.closest('.size-label')?.classList.add('selected');
+            }
+            
+            // Вешаем обработчики (с защитой от дублирования)
+            if (!addToCartBtn.dataset.sizeHandlersAttached) {
+                // Клик по label
+                sizeLabels.forEach(label => {
+                    label.addEventListener('click', function(e) {
+                        const radio = this.querySelector('input[name="size_id"]');
+                        if (!radio || radio.disabled) {
+                            e.preventDefault();
+                            return;
+                        }
+                        radio.checked = true;
+                        activateButton(radio);
                     });
-                    
-                    // Добавляем активный класс на нажатую
-                    this.classList.add('active', 'selected', 'ring-2', 'ring-black');
-                    this.setAttribute('aria-selected', 'true');
-                    
-                    // Сохраняем выбранный размер (для формы корзины)
-                    const selectedSize = this.dataset.size || this.textContent.trim();
-                    const hiddenInput = document.querySelector('#selected-size-input');
-                    if (hiddenInput) hiddenInput.value = selectedSize;
-                    
-                    // Опционально: покажем toast или обновим UI
-                    console.log('✅ Размер выбран:', selectedSize);
-                };
-            });
+                });
+                
+                // Change на radio
+                sizeRadios.forEach(radio => {
+                    radio.addEventListener('change', function() {
+                        if (!this.disabled) activateButton(this);
+                    });
+                });
+                
+                addToCartBtn.dataset.sizeHandlersAttached = 'true';
+            }
+            
+            // 🔥 Авто-выбор первого доступного размера при загрузке
+            const firstAvailable = document.querySelector('input[name="size_id"]:not(:disabled)');
+            const alreadyChecked = document.querySelector('input[name="size_id"]:checked');
+            
+            if (firstAvailable && !alreadyChecked) {
+                firstAvailable.checked = true;
+            }
+            
+            // Синхронизируем кнопку с текущим состоянием
+            const checked = document.querySelector('input[name="size_id"]:checked:not(:disabled)');
+            if (checked) {
+                activateButton(checked);
+            }
         }
 
         // === Инициализация Swiper ===
