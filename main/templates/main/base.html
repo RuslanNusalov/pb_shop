@@ -328,21 +328,49 @@
                 document.body.style.overflow = '';
             }
 
-            // Используем onclick для предотвращения дублирования
             menuToggle.onclick = openMobileMenu;
             closeMenu.onclick = closeMobileMenu;
             overlay.onclick = closeMobileMenu;
+        }
+
+        // === Инициализация кнопок выбора размера (НОВОЕ!) ===
+        function initSizeButtons() {
+            // 🔍 Замени '.size-btn' на реальный класс твоих кнопок в product_detail.html
+            const sizeButtons = document.querySelectorAll('.size-btn');
+            
+            sizeButtons.forEach(btn => {
+                // Используем onclick вместо addEventListener, чтобы не дублировать при HTMX
+                btn.onclick = function(e) {
+                    e.preventDefault();
+                    
+                    // Убираем активный класс со всех кнопок
+                    document.querySelectorAll('.size-btn').forEach(b => {
+                        b.classList.remove('active', 'selected', 'ring-2', 'ring-black');
+                        b.setAttribute('aria-selected', 'false');
+                    });
+                    
+                    // Добавляем активный класс на нажатую
+                    this.classList.add('active', 'selected', 'ring-2', 'ring-black');
+                    this.setAttribute('aria-selected', 'true');
+                    
+                    // Сохраняем выбранный размер (для формы корзины)
+                    const selectedSize = this.dataset.size || this.textContent.trim();
+                    const hiddenInput = document.querySelector('#selected-size-input');
+                    if (hiddenInput) hiddenInput.value = selectedSize;
+                    
+                    // Опционально: покажем toast или обновим UI
+                    console.log('✅ Размер выбран:', selectedSize);
+                };
+            });
         }
 
         // === Инициализация Swiper ===
         function initSwipers() {
             if (typeof Swiper === 'undefined') return;
             
-            // Уничтожаем старые экземпляры
             if (window.mainSwiper) window.mainSwiper.destroy(true, true);
             if (window.productSwiper) window.productSwiper.destroy(true, true);
             
-            // Главный слайдер (баннеры)
             const bannerSwiperEl = document.querySelector('.main-swiper');
             if (bannerSwiperEl) {
                 window.mainSwiper = new Swiper(bannerSwiperEl, {
@@ -354,7 +382,6 @@
                 });
             }
             
-            // Слайдер новинок
             const productSwiperEl = document.querySelector('.product-swiper');
             if (productSwiperEl) {
                 window.productSwiper = new Swiper(productSwiperEl, {
@@ -372,7 +399,6 @@
 
         // === Глобальные функции ===
         
-        // Обновление счётчика корзины в хедере
         window.updateHeaderCartCount = function(count) {
             const desktopCart = document.getElementById('desktopCart');
             const mobileCart = document.getElementById('mobileCart');
@@ -384,7 +410,6 @@
             if (mobileCartHeader) mobileCartHeader.textContent = cartText;
         };
         
-        // Показ уведомлений (тостов)
         window.showToast = function(message, type = 'success') {
             document.querySelectorAll('.toast-notification').forEach(el => el.remove());
             
@@ -428,10 +453,10 @@
         // === Запуск при загрузке и после HTMX ===
         document.addEventListener('DOMContentLoaded', function() {
             initMobileMenu();
+            initSizeButtons();  // ✅ Добавили инициализацию размеров
             initSwipers();
             updateCartCount();
             
-            // Обработчики корзины
             const desktopCart = document.getElementById('desktopCart');
             const mobileCart = document.getElementById('mobileCart');
             const mobileCartHeader = document.getElementById('mobileCartHeader');
@@ -448,9 +473,9 @@
         
         document.addEventListener('htmx:afterSwap', function(event) {
             initMobileMenu();
+            initSizeButtons();  // ✅ Добавили инициализацию размеров после HTMX
             initSwipers();
             
-            // Анимация fade-in
             const target = event.detail.target;
             if (target && target.classList.contains('fade-in')) {
                 target.classList.remove('fade-in');
@@ -458,7 +483,6 @@
                 target.classList.add('fade-in');
             }
             
-            // Закрываем мобильное меню после успешного перехода
             const mobileMenu = document.getElementById('mobileMenu');
             const overlay = document.getElementById('overlay');
             const menuToggle = document.getElementById('menuToggle');
@@ -472,7 +496,6 @@
 
         // === Слушатели событий ===
         
-        // Обновление корзины
         document.addEventListener('cartUpdated', function(e) {
             if (e.detail && e.detail.total !== undefined) {
                 document.querySelectorAll('.cart-count').forEach(el => el.textContent = e.detail.total);
@@ -480,10 +503,8 @@
             }
         });
         
-        // Обновление избранного
         document.addEventListener('wishlistUpdated', function(e) {
             if (e.detail?.count === undefined) return;
-            
             const count = e.detail.count;
             
             document.querySelectorAll('#wishlist-count, .wishlist-count-mobile').forEach(el => {
@@ -501,7 +522,6 @@
             });
         });
         
-        // Обновление активных ссылок навигации
         document.addEventListener('htmx:afterSettle', function() {
             const currentPath = window.location.pathname.replace(/\/$/, '');
             document.querySelectorAll('.nav-link, .mobile-nav-link').forEach(link => {
@@ -513,7 +533,6 @@
             });
         });
         
-        // Закрытие меню при ресайзе
         window.addEventListener('resize', function() {
             if (window.innerWidth >= 768) {
                 const mobileMenu = document.getElementById('mobileMenu');
@@ -526,7 +545,6 @@
             }
         });
 
-        // === CSRF для HTMX ===
         document.body.addEventListener('htmx:configRequest', (event) => {
             const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
             if (token) {
