@@ -1,0 +1,198 @@
+{# users/templates/users/partials/order_detail_content.html #}
+{# ⚠️ Частичный шаблон для HTMX — без {% extends %} и {% block %} #}
+
+<div class="mx-auto px-4 sm:px-6 lg:px-8 py-12 max-w-4xl">
+    <!-- Breadcrumb -->
+    <div class="mb-8">
+        <nav class="text-sm text-gray-600">
+            <a href="{% url 'users:profile' %}" 
+               hx-get="{% url 'users:profile' %}" 
+               hx-target="#main-content" 
+               hx-push-url="true"
+               class="hover:text-gray-900">ЛИЧНЫЙ КАБИНЕТ</a>
+            <span class="mx-2">/</span>
+            <a href="{% url 'users:order_history' %}" 
+               hx-get="{% url 'users:order_history' %}" 
+               hx-target="#main-content" 
+               hx-push-url="true"
+               class="hover:text-gray-900">ИСТОРИЯ ЗАКАЗОВ</a>
+            <span class="mx-2">/</span>
+            <span class="text-gray-900">ЗАКАЗ #{{ order.id }}</span>
+        </nav>
+    </div>
+
+    <!-- Order Header -->
+    <div class="bg-white border border-gray-200 rounded-lg p-6 mb-6">
+        <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start mb-6">
+            <div>
+                <h1 class="text-2xl font-bold text-gray-900 mb-2">
+                    ЗАКАЗ #{{ order.id }}
+                </h1>
+                <p class="text-sm text-gray-500">
+                    Размещён: {{ order.created_at|date:"d.m.Y в H:i" }}
+                </p>
+            </div>
+            <span class="mt-3 sm:mt-0 px-4 py-2 text-sm font-medium rounded-full
+                {% if order.status == 'completed' %}bg-green-100 text-green-800
+                {% elif order.status == 'processing' %}bg-blue-100 text-blue-800
+                {% elif order.status == 'pending' %}bg-yellow-100 text-yellow-800
+                {% elif order.status == 'cancelled' %}bg-red-100 text-red-800
+                {% else %}bg-gray-100 text-gray-800{% endif %}">
+                {{ order.get_status_display }}
+            </span>
+        </div>
+
+        <!-- Order Info Grid -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+            <div>
+                <p class="text-gray-500 mb-1">НОМЕР ЗАКАЗА:</p>
+                <p class="font-medium text-gray-900">#{{ order.id }}</p>
+            </div>
+            <div>
+                <p class="text-gray-500 mb-1">ДАТА:</p>
+                <p class="font-medium text-gray-900">{{ order.created_at|date:"d.m.Y H:i" }}</p>
+            </div>
+            {% if order.updated_at %}
+            <div>
+                <p class="text-gray-500 mb-1">ОБНОВЛЁН:</p>
+                <p class="font-medium text-gray-900">{{ order.updated_at|date:"d.m.Y H:i" }}</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Order Items -->
+    <div class="bg-white border border-gray-200 rounded-lg p-6 mb-6">
+        <h2 class="text-lg font-bold text-gray-900 mb-4">ТОВАРЫ В ЗАКАЗЕ</h2>
+        
+        {% if order.items.exists %}
+        <div class="space-y-4">
+            {% for item in order.items.all %}
+            <div class="flex gap-4 pb-4 border-b border-gray-100 last:border-0">
+                <!-- Product Image -->
+                <div class="w-20 h-20 flex-shrink-0 bg-gray-100 rounded-lg overflow-hidden">
+                    {% if item.product_image %}
+                        <img src="{{ item.product_image.url }}" 
+                             alt="{{ item.product_name }}" 
+                             class="w-full h-full object-cover">
+                    {% else %}
+                        <div class="w-full h-full flex items-center justify-center">
+                            <span class="text-gray-400 text-xs">Нет фото</span>
+                        </div>
+                    {% endif %}
+                </div>
+                
+                <!-- Product Info -->
+                <div class="flex-1">
+                    <h3 class="font-medium text-gray-900">{{ item.product_name }}</h3>
+                    {% if item.product_size %}
+                    <p class="text-sm text-gray-500 mt-1">
+                        Размер: {{ item.product_size }}
+                    </p>
+                    {% endif %}
+                    <div class="flex items-center gap-4 mt-2">
+                        <span class="text-sm text-gray-600">
+                            Количество: <strong>{{ item.quantity }}</strong>
+                        </span>
+                        <span class="text-sm font-medium text-gray-900">
+                            ₽{{ item.price }}
+                        </span>
+                    </div>
+                </div>
+                
+                <!-- Item Total -->
+                <div class="text-right">
+                    <p class="font-bold text-gray-900">
+                        ₽{{ item.get_total_price|default:item.price|multiply:item.quantity }}
+                    </p>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-gray-500 text-center py-8">Нет товаров в заказе</p>
+        {% endif %}
+    </div>
+
+    <!-- Order Summary -->
+    <div class="bg-white border border-gray-200 rounded-lg p-6 mb-6">
+        <h2 class="text-lg font-bold text-gray-900 mb-4">ИТОГИ ЗАКАЗА</h2>
+        
+        <div class="space-y-2 text-sm">
+            <div class="flex justify-between text-gray-600">
+                <span>Подытог:</span>
+                <span>₽{{ order.subtotal|default:order.total_price }}</span>
+            </div>
+            {% if order.delivery_price %}
+            <div class="flex justify-between text-gray-600">
+                <span>Доставка:</span>
+                <span>₽{{ order.delivery_price }}</span>
+            </div>
+            {% endif %}
+            {% if order.discount %}
+            <div class="flex justify-between text-green-600">
+                <span>Скидка:</span>
+                <span>-₽{{ order.discount }}</span>
+            </div>
+            {% endif %}
+            <div class="border-t border-gray-200 pt-2 mt-2 flex justify-between text-base font-bold text-gray-900">
+                <span>ИТОГО:</span>
+                <span>₽{{ order.total_price }}</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Shipping Address -->
+    {% if order.shipping_address or order.shipping_city or order.shipping_phone %}
+    <div class="bg-white border border-gray-200 rounded-lg p-6 mb-6">
+        <h2 class="text-lg font-bold text-gray-900 mb-4">АДРЕС ДОСТАВКИ</h2>
+        <div class="text-sm text-gray-600 space-y-1">
+            {% if order.shipping_address %}
+            <p>{{ order.shipping_address }}</p>
+            {% endif %}
+            {% if order.shipping_city or order.shipping_postal_code %}
+            <p>
+                {% if order.shipping_city %}{{ order.shipping_city }}{% endif %}
+                {% if order.shipping_postal_code %}, {{ order.shipping_postal_code }}{% endif %}
+            </p>
+            {% endif %}
+            {% if order.shipping_phone %}
+            <p>Телефон: {{ order.shipping_phone }}</p>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Actions -->
+    <div class="flex gap-4">
+        <a href="{% url 'users:order_history' %}" 
+           hx-get="{% url 'users:order_history' %}" 
+           hx-target="#main-content" 
+           hx-push-url="true"
+           class="px-6 py-3 border-2 border-gray-300 hover:border-gray-400 text-gray-700 hover:text-gray-900 font-medium rounded-lg transition-colors text-sm">
+            ← К ИСТОРИИ ЗАКАЗОВ
+        </a>
+        
+        {% if order.status == 'completed' or order.status == 'processing' %}
+        <button type="button" 
+                onclick="window.print()"
+                class="px-6 py-3 bg-black hover:bg-gray-800 text-white font-medium rounded-lg transition-colors text-sm">
+            ️ ПЕЧАТЬ ЗАКАЗА
+        </button>
+        {% endif %}
+    </div>
+</div>
+
+{% comment %}
+<!-- Если нужен кастомный фильтр для умножения, добавь в templatetags: -->
+<!-- users/templatetags/order_extras.py -->
+<!-- from django import template
+register = template.Library()
+@register.filter
+def multiply(value, arg):
+    try:
+        return float(value) * float(arg)
+    except (ValueError, TypeError):
+        return value
+-->
+{% endcomment %}

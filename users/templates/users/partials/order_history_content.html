@@ -1,0 +1,52 @@
+<div class="mx-auto px-4 sm:px-6 lg:px-8 py-12 max-w-4xl">
+    <h1 class="text-3xl font-bold mb-8 text-center">ИСТОРИЯ ЗАКАЗОВ</h1>
+    
+    {% if orders %}
+        <div class="space-y-4">
+            {% for order in orders %}
+            <div class="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                <div class="flex justify-between items-start mb-2">
+                    <div>
+                        <p class="font-medium text-gray-900">Заказ #{{ order.id }}</p>
+                        <p class="text-sm text-gray-500">{{ order.created_at|date:"d.m.Y H:i" }}</p>
+                    </div>
+                    <span class="px-3 py-1 text-xs font-medium rounded-full
+                        {% if order.status == 'completed' %}bg-green-100 text-green-800
+                        {% elif order.status == 'pending' %}bg-yellow-100 text-yellow-800
+                        {% else %}bg-gray-100 text-gray-800{% endif %}">
+                        {{ order.get_status_display }}
+                    </span>
+                </div>
+                
+                <p class="text-sm text-gray-600 mb-2">
+                    Сумма: <strong>₽{{ order.total_price }}</strong>
+                </p>
+                
+                {% if order.items.exists %}
+                <div class="border-t border-gray-100 pt-3 mt-3">
+                    <p class="text-xs text-gray-500 mb-2">Товары:</p>
+                    <ul class="space-y-1">
+                        {% for item in order.items.all %}
+                        <li class="text-sm text-gray-700">
+                            {{ item.product_name }} × {{ item.quantity }}
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="text-center py-12 bg-white border border-gray-200 rounded-lg">
+            <p class="text-gray-500 text-lg">У вас пока нет заказов</p>
+            <a href="{% url 'main:index' %}" 
+               hx-get="{% url 'main:index' %}" 
+               hx-target="#main-content" 
+               hx-push-url="true"
+               class="mt-4 inline-block px-6 py-2 bg-black text-white text-sm font-medium rounded hover:bg-gray-800 transition-colors">
+                Перейти в каталог
+            </a>
+        </div>
+    {% endif %}
+</div>
