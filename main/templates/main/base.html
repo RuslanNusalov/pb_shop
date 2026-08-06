@@ -471,6 +471,30 @@
             }
         }
 
+        // === Инициализация кнопок избранного ===
+        function initWishlistButtons() {
+            // Находим все кнопки добавления в избранное
+            const wishlistButtons = document.querySelectorAll('[hx-post*="wishlist/toggle"]');
+            
+            wishlistButtons.forEach(btn => {
+                // Проверяем, что обработчик ещё не навешан
+                if (!btn.dataset.wishlistAttached) {
+                    // HTMX сам обработает hx-post, но мы можем добавить индикатор
+                    btn.addEventListener('htmx:beforeRequest', function(e) {
+                        btn.disabled = true;
+                        btn.classList.add('opacity-50');
+                    });
+                    
+                    btn.addEventListener('htmx:afterRequest', function(e) {
+                        btn.disabled = false;
+                        btn.classList.remove('opacity-50');
+                    });
+                    
+                    btn.dataset.wishlistAttached = 'true';
+                }
+            });
+        }
+
         // === Глобальные функции ===
         
         window.updateHeaderCartCount = function(count) {
@@ -528,6 +552,7 @@
         document.addEventListener('DOMContentLoaded', function() {
             initMobileMenu();
             initSizeButtons();  // ✅ Добавили инициализацию размеров
+            initWishlistButtons();
             initSwipers();
             updateCartCount();
             

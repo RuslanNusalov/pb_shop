@@ -50,6 +50,7 @@ class CatalogView(WishlistContextMixin, TemplateView):
         context = super().get_context_data(**kwargs)
         category_slug = kwargs.get('category_slug')
         current_category = None
+        context['categories'] = Category.objects.all()
 
         categories = Category.objects.all()
         products = Product.objects.prefetch_related('category', 'product_sizes').filter(
