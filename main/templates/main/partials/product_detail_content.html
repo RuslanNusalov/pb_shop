@@ -148,28 +148,32 @@
     <h2 class="text-xl font-bold tracking-tight text-gray-900 mb-8">ВАМ ТАКЖЕ МОГУТ ПОНРАВИТЬСЯ</h2>
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         {% for rp in related_products %}
-        <div class="product-card group cursor-pointer" 
-                hx-get="{% url 'main:product_detail' rp.slug %}"
-                hx-target="#main-content"
-                hx-push-url="true">
-            <div class="aspect-square overflow-hidden bg-gray-100 rounded-lg mb-4">
-                {% if rp.main_image %}
-                    <img src="{{ rp.main_image.url }}" 
-                            alt="{{ rp.name }}" 
-                            class="product-image w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
-                {% else %}
-                    <div class="bg-gray-200 flex items-center justify-center h-full">
-                        <span class="text-gray-400 text-sm">Нет фото</span>
-                    </div>
-                {% endif %}
+            <!-- ✅ ЗАЩИТА ОТ ПУСТОГО SLUG -->
+            {% if rp.slug %}
+            <div class="product-card group cursor-pointer" 
+                    hx-get="{% url 'main:product_detail' rp.slug %}"
+                    hx-target="#main-content"
+                    hx-push-url="true">
+                <div class="aspect-square overflow-hidden bg-gray-100 rounded-lg mb-4">
+                    {% if rp.main_image %}
+                        <img src="{{ rp.main_image.url }}" 
+                                alt="{{ rp.name }}" 
+                                class="product-image w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
+                    {% else %}
+                        <div class="bg-gray-200 flex items-center justify-center h-full">
+                            <span class="text-gray-400 text-sm">Нет фото</span>
+                        </div>
+                    {% endif %}
+                </div>
+                <div class="text-center">
+                    <h3 class="text-sm font-medium text-gray-900 mb-1">{{ rp.name|upper }}</h3>
+                    <p class="text-sm text-gray-600 mb-1">{{ rp.color|upper }}</p>
+                    <p class="text-sm font-medium">₽{{ rp.price }}</p>
+                </div>
             </div>
-            <div class="text-center">
-                <h3 class="text-sm font-medium text-gray-900 mb-1">{{ rp.name|upper }}</h3>
-                <p class="text-sm text-gray-600 mb-1">{{ rp.color|upper }}</p>
-                <p class="text-sm font-medium">₽{{ rp.price }}</p>
-            </div>
-        </div>
+            {% endif %}
+            <!-- ✅ КОНЕЦ ЗАЩИТЫ -->
         {% endfor %}
     </div>
-</div>
+</div>  
 {% endif %}
