@@ -564,6 +564,27 @@
             });
         }
 
+        // === Обработчики для добавления в корзину (HTMX) ===
+        function onAddToCartStart(form) {
+            const btn = document.getElementById('add-to-cart-btn');
+            const text = document.getElementById('btn-text');
+            const loader = document.getElementById('btn-loader');
+            
+            if (btn) btn.disabled = true;
+            if (text) text.textContent = 'ДОБАВЛЯЕМ...';
+            if (loader) loader.classList.remove('hidden');
+        }
+
+        function onAddToCartEnd(form) {
+            const btn = document.getElementById('add-to-cart-btn');
+            const text = document.getElementById('btn-text');
+            const loader = document.getElementById('btn-loader');
+            
+            if (btn) btn.disabled = false;
+            if (text) text.textContent = 'ДОБАВИТЬ В КОРЗИНУ';
+            if (loader) loader.classList.add('hidden');
+        }
+
         // === Запуск при загрузке и после HTMX ===
         document.addEventListener('DOMContentLoaded', function() {
             initMobileMenu();
