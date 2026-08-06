@@ -552,7 +552,6 @@
         document.addEventListener('DOMContentLoaded', function() {
             initMobileMenu();
             initSizeButtons();  // ✅ Добавили инициализацию размеров
-            initWishlistButtons();
             initSwipers();
             updateCartCount();
             
@@ -574,6 +573,7 @@
             initMobileMenu();
             initSizeButtons();  // ✅ Добавили инициализацию размеров после HTMX
             initSwipers();
+            initWishlistButtons();
             
             const target = event.detail.target;
             if (target && target.classList.contains('fade-in')) {
