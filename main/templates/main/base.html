@@ -473,23 +473,24 @@
 
         // === Инициализация кнопок избранного ===
         function initWishlistButtons() {
-            // Находим все кнопки добавления в избранное
+            // Находим все кнопки с hx-post, ведущие на wishlist/toggle
             const wishlistButtons = document.querySelectorAll('[hx-post*="wishlist/toggle"]');
             
             wishlistButtons.forEach(btn => {
-                // Проверяем, что обработчик ещё не навешан
+                // Защита от дублирования обработчиков
                 if (!btn.dataset.wishlistAttached) {
-                    // HTMX сам обработает hx-post, но мы можем добавить индикатор
-                    btn.addEventListener('htmx:beforeRequest', function(e) {
+                    // Визуальная обратная связь при запросе
+                    btn.addEventListener('htmx:beforeRequest', function() {
                         btn.disabled = true;
-                        btn.classList.add('opacity-50');
+                        btn.classList.add('opacity-50', 'cursor-wait');
                     });
                     
-                    btn.addEventListener('htmx:afterRequest', function(e) {
+                    btn.addEventListener('htmx:afterRequest', function() {
                         btn.disabled = false;
-                        btn.classList.remove('opacity-50');
+                        btn.classList.remove('opacity-50', 'cursor-wait');
                     });
                     
+                    // Помечаем, что обработчики уже навешаны
                     btn.dataset.wishlistAttached = 'true';
                 }
             });
