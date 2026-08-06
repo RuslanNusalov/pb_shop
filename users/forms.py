@@ -102,14 +102,29 @@ class CustomUserUpdateForm(forms.ModelForm):
 
     class Meta:
         model = User
-        fields = ('first_name', 'last_name', 'email',
-                  'address', 'city', 'region',
-                  'postal_code', 'phone')
+        fields = (
+            'first_name', 'last_name', 'email',
+            'address', 'city', 'region',
+            'postal_code', 'phone'
+        )
+        
+        # ✅ Базовые атрибуты для всех текстовых полей
+        # Включают класс .dotted-input, который ты настроил ранее
+        base_attrs = {
+            'class': 'dotted-input w-full py-2 px-3 text-gray-900 placeholder-gray-400 focus:outline-none',
+            'autocomplete': 'off',
+        }
+
         widgets = {
-            'address': forms.TextInput(attrs={**WIDGET_ATTRS, 'placeholder': 'АДРЕС'}),
-            'city': forms.TextInput(attrs={**WIDGET_ATTRS, 'placeholder': 'ГОРОД'}),
-            'region': forms.TextInput(attrs={**WIDGET_ATTRS, 'placeholder': 'РЕГИОН'}),
-            'postal_code': forms.TextInput(attrs={**WIDGET_ATTRS, 'placeholder': 'ИНДЕКС'}),
+            'first_name': forms.TextInput(attrs={**base_attrs, 'placeholder': 'ИМЯ'}),
+            'last_name': forms.TextInput(attrs={**base_attrs, 'placeholder': 'ФАМИЛИЯ'}),
+            'email': forms.EmailInput(attrs={**base_attrs, 'placeholder': 'EMAIL'}),
+            'phone': forms.TextInput(attrs={**base_attrs, 'placeholder': 'ТЕЛЕФОН'}),
+            
+            'address': forms.TextInput(attrs={**base_attrs, 'placeholder': 'АДРЕС'}),
+            'city': forms.TextInput(attrs={**base_attrs, 'placeholder': 'ГОРОД'}),
+            'region': forms.TextInput(attrs={**base_attrs, 'placeholder': 'РЕГИОН'}),
+            'postal_code': forms.TextInput(attrs={**base_attrs, 'placeholder': 'ИНДЕКС'}),
         }
 
     def clean_phone(self):

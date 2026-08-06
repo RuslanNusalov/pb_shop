@@ -155,6 +155,21 @@
         cursor: not-allowed;
         background-color: #f9fafb;
     }
+    /* === Стили для dotted-input (редактирование профиля) === */
+    .dotted-input {
+        border: none;
+        border-bottom: 2px dotted #d1d5db;
+        background: transparent;
+        outline: none;
+        transition: border-color 0.3s ease;
+    }
+    .dotted-input:focus {
+        border-bottom-color: #374151;
+    }
+    .dotted-input::placeholder {
+        color: #6b7280;
+        font-weight: 500;
+    }
 </style>
 
 </head>
@@ -553,6 +568,7 @@
         document.addEventListener('DOMContentLoaded', function() {
             initMobileMenu();
             initSizeButtons();  // ✅ Добавили инициализацию размеров
+            initWishlistButtons();
             initSwipers();
             updateCartCount();
             
@@ -651,6 +667,26 @@
                 event.detail.headers['X-CSRFToken'] = token;
             }
         });
+        // === Инициализация dotted-input (редактирование профиля) ===
+        function initDottedInputs() {
+            // Используем делегирование: вешаем обработчик на document,
+            // а не на каждый input отдельно
+            document.addEventListener('focus', function(e) {
+                if (e.target.classList.contains('dotted-input')) {
+                    e.target.parentElement?.classList.add('focused');
+                }
+            }, true); // true = capture phase, чтобы ловить focus (он не всплывает)
+            
+            document.addEventListener('blur', function(e) {
+                if (e.target.classList.contains('dotted-input')) {
+                    e.target.parentElement?.classList.remove('focused');
+                }
+            }, true);
+        }
+
+        // Вызываем при загрузке (на всякий случай)
+        document.addEventListener('DOMContentLoaded', initDottedInputs);
+        // После HTMX-запросов вызывать не обязательно — делегирование работает всегда
     </script>
     <!-- Footer -->
     <footer class="bg-black text-white pt-12 pb-8 mt-auto">
