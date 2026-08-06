@@ -1,3 +1,6 @@
+from main.models import Category
+
+
 def global_wishlist_count(request):
     """Добавляет счётчик избранного в контекст ВСЕХ шаблонов"""
     count = 0
@@ -16,3 +19,9 @@ def global_wishlist_count(request):
             count = 0
             
     return {'wishlist_count': count}
+
+
+def global_categories(request):
+    return {
+        'categories': Category.objects.all(),
+    }
