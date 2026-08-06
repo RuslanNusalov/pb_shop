@@ -1,4 +1,3 @@
-{# wishlist/templates/wishlist/partials/wishlist_content.html #}
 <div class="mx-auto px-4 sm:px-6 lg:px-8 py-12 max-w-6xl">
     <h1 class="text-3xl font-bold mb-8 text-center">ИЗБРАННОЕ</h1>
 
@@ -10,14 +9,26 @@
                     {% include 'wishlist/partials/toggle_btn.html' with product=product is_in_wishlist=True %}
                 </div>
 
+                <!-- ✅ ЗАЩИТА 1: Проверяем, что slug не пустой, перед генерацией ссылки -->
+                {% if product.slug %}
                 <a href="{% url 'main:product_detail' product.slug %}" 
                    hx-get="{% url 'main:product_detail' product.slug %}" 
                    hx-target="#main-content" 
                    hx-push-url="true"
                    class="block aspect-square overflow-hidden bg-gray-50">
-                    <img src="{{ product.main_image.url }}" alt="{{ product.name }}" 
-                         class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+                    
+                    <!-- ✅ ЗАЩИТА 2: Проверяем, есть ли картинка -->
+                    {% if product.main_image %}
+                        <img src="{{ product.main_image.url }}" alt="{{ product.name }}" 
+                             class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+                    {% else %}
+                        <div class="w-full h-full bg-gray-200 flex items-center justify-center">
+                            <span class="text-gray-400 text-xs">Нет фото</span>
+                        </div>
+                    {% endif %}
+                    
                 </a>
+                {% endif %}
 
                 <div class="p-4">
                     <h3 class="text-sm font-medium text-gray-900 truncate">{{ product.name|upper }}</h3>
