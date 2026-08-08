@@ -1,23 +1,25 @@
-from django.shortcuts import render, redirect
+import logging
+from decimal import Decimal
+
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.utils.decorators import method_decorator
-from django.http import HttpResponse
-from django.template.response import TemplateResponse
-from django.views.generic import View, DetailView
-from django.urls import reverse
-from django.db import transaction
-from django.db.models import Sum, F
 from django.core.exceptions import ValidationError
-from decimal import Decimal
-import logging
-from main.mixins import WishlistContextMixin
+from django.db import transaction
+from django.db.models import F, Sum
+from django.http import HttpResponse
+from django.shortcuts import redirect, render
+from django.template.response import TemplateResponse
+from django.urls import reverse
+from django.utils.decorators import method_decorator
+from django.views.generic import DetailView, View
 
-from main.models import ProductSize
 from cart.models import PromoCode
+from cart.views import CartMixin
+from main.mixins import WishlistContextMixin
+from main.models import ProductSize
+
 from .forms import OrderForm
 from .models import Order, OrderItem
-from cart.views import CartMixin
 
 logger = logging.getLogger(__name__)
 
@@ -137,16 +139,16 @@ class CheckoutView(WishlistContextMixin, CartMixin, View):
         return redirect('payment:payment_instructions', order_id=order.pk)
 
 
-class OrderDetailView(WishlistContextMixin, LoginRequiredMixin, DetailView):
-    model = Order
-    template_name = 'orders/order_detail.html'
-    context_object_name = 'order'
-    pk_url_kwarg = 'order_id'
+# class OrderDetailView(WishlistContextMixin, LoginRequiredMixin, DetailView):
+#     model = Order
+#     template_name = 'orders/order_detail.html'
+#     context_object_name = 'order'
+#     pk_url_kwarg = 'order_id'
 
-    def get_queryset(self):
-        return Order.objects.filter(user=self.request.user).select_related('user', 'promo_code')
+#     def get_queryset(self):
+#         return Order.objects.filter(user=self.request.user).select_related('user', 'promo_code')
 
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['items'] = self.object.items.select_related('product', 'product_size__size')
-        return context
+#     def get_context_data(self, **kwargs):
+#         context = super().get_context_data(**kwargs)
+#         context['items'] = self.object.items.select_related('product', 'product_size__size')
+#         return context
