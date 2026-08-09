@@ -1,26 +1,3 @@
-{% load static %}
-<style>
-    .dotted-input {
-        border: none;
-        border-bottom: 2px dotted #d1d5db;
-        background: transparent;
-        outline: none;
-        transition: border-color 0.3s ease;
-    }
-    .dotted-input:focus {
-        border-bottom-color: #374151;
-    }
-    /* Анимация появления */
-    .fade-in {
-        animation: fadeIn 0.3s ease-in-out;
-    }
-    @keyframes fadeIn {
-        from { opacity: 0; transform: translateY(10px); }
-        to { opacity: 1; transform: translateY(0); }
-    }
-</style>
-
-<!-- Обёртка с ID, на который ссылается HTMX -->
 <div id="main-content" class="min-h-screen p-8 fade-in">
     <div class="max-w-6xl mx-auto">
         <h1 class="text-3xl font-bold text-gray-900 mb-8 text-center tracking-wide">

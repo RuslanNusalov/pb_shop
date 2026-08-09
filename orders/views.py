@@ -1,15 +1,20 @@
 import logging
 from decimal import Decimal
 
+from django.contrib import messages  # ✅ ДОБАВЛЕНО
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.models import F, Sum
 from django.http import HttpResponse
-from django.shortcuts import redirect, render
+from django.shortcuts import (  # ✅ ДОБАВЛЕНО get_object_or_404
+    get_object_or_404,
+    redirect,
+    render,
+)
 from django.template.response import TemplateResponse
-from django.urls import reverse
+from django.urls import reverse, reverse_lazy  # ✅ ДОБАВЛЕНО reverse_lazy
 from django.utils.decorators import method_decorator
 from django.views.generic import DetailView, View
 
@@ -24,7 +29,7 @@ from .models import Order, OrderItem
 logger = logging.getLogger(__name__)
 
 
-@method_decorator(login_required(login_url='/users/login'), name='dispatch')
+@method_decorator(login_required(login_url=reverse_lazy('users:login')), name='dispatch') # ✅ Используем reverse_lazy
 class CheckoutView(WishlistContextMixin, CartMixin, View):
     def _checkout_context(self, form, cart, error_message=None):
         return {
@@ -70,7 +75,9 @@ class CheckoutView(WishlistContextMixin, CartMixin, View):
             context = self._checkout_context(
                 form, cart, error_message='Пожалуйста, исправьте ошибки в форме.'
             )
-            # ✅ Всегда возвращаем полную страницу при ошибке
+            # ✅ Если HTMX — возвращаем частичный шаблон, иначе полную страницу
+            if request.headers.get('HX-Request'):
+                return TemplateResponse(request, 'orders/checkout_content.html', context)
             return render(request, 'orders/checkout.html', context)
 
         cart_items = list(cart.items.select_related('product', 'product_size'))
@@ -132,23 +139,47 @@ class CheckoutView(WishlistContextMixin, CartMixin, View):
 
         except ValidationError as e:
             context = self._checkout_context(form, cart, error_message=str(e))
-            # ✅ Всегда возвращаем полную страницу при ошибке
+            if request.headers.get('HX-Request'):
+                return TemplateResponse(request, 'orders/checkout_content.html', context)
             return render(request, 'orders/checkout.html', context)
 
-        # ✅ Успешно: стандартный редирект (Post-Redirect-Get)
         return redirect('payment:payment_instructions', order_id=order.pk)
 
 
-# class OrderDetailView(WishlistContextMixin, LoginRequiredMixin, DetailView):
-#     model = Order
-#     template_name = 'orders/order_detail.html'
-#     context_object_name = 'order'
-#     pk_url_kwarg = 'order_id'
+class OrderDetailView(WishlistContextMixin, LoginRequiredMixin, DetailView):
+    model = Order
+    template_name = 'orders/order_detail.html'
+    context_object_name = 'order'
+    pk_url_kwarg = 'order_id'
 
-#     def get_queryset(self):
-#         return Order.objects.filter(user=self.request.user).select_related('user', 'promo_code')
+    def get_queryset(self):
+        return Order.objects.filter(user=self.request.user).select_related('user', 'promo_code')
 
-#     def get_context_data(self, **kwargs):
-#         context = super().get_context_data(**kwargs)
-#         context['items'] = self.object.items.select_related('product', 'product_size__size')
-#         return context
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['items'] = self.object.items.select_related('product', 'product_size__size')
+        return context
+
+
+@login_required(login_url=reverse_lazy('users:login'))
+def order_history(request):
+    orders = Order.objects.filter(user=request.user).order_by('-created_at')
+    
+    if request.headers.get('HX-Request'):
+        return TemplateResponse(request, 'orders/partials/order_history_content.html', {'orders': orders})
+    
+    return render(request, 'orders/order_history.html', {'orders': orders})
+
+
+
+@login_required(login_url=reverse_lazy('users:login'))
+def cancel_order(request, order_id):
+    order = get_object_or_404(Order, id=order_id, user=request.user)
+    if order.status == 'pending':
+        order.status = 'cancelled'
+        order.save()
+        messages.success(request, f'Заказ №{order.id} успешно отменён')
+    else:
+        messages.error(request, 'Этот заказ нельзя отменить')
+    
+    return redirect('orders:order_detail', order_id=order.id)

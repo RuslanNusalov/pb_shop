@@ -11,7 +11,7 @@
                hx-push-url="true"
                class="hover:text-gray-900">ЛИЧНЫЙ КАБИНЕТ</a>
             <span class="mx-2">/</span>
-            <a href="{% url 'users:order_history' %}" 
+            <a href="{% url 'orders:order_history' %}" 
                hx-get="{% url 'users:order_history' %}" 
                hx-target="#main-content" 
                hx-push-url="true"
@@ -165,8 +165,8 @@
 
     <!-- Actions -->
     <div class="flex gap-4">
-        <a href="{% url 'users:order_history' %}" 
-           hx-get="{% url 'users:order_history' %}" 
+        <a href="{% url 'orders:order_history' %}" 
+           hx-get="{% url 'orders:order_history' %}" 
            hx-target="#main-content" 
            hx-push-url="true"
            class="px-6 py-3 border-2 border-gray-300 hover:border-gray-400 text-gray-700 hover:text-gray-900 font-medium rounded-lg transition-colors text-sm">

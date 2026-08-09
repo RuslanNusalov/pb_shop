@@ -12,7 +12,4 @@ urlpatterns = [
     path('edit-account-details/', views.edit_account_details, name='edit_account_details'),
     path('update-account-details/', views.update_account_details, name='update_account_details'),
     path('logout/', views.logout_view, name='logout'),
-    path('order-history/', views.order_history, name='order_history'),
-    path('order/<int:order_id>/', views.order_detail, name='order_detail'),
-    path('order/<int:order_id>/cancel/', views.cancel_order, name='cancel_order'),
 ]
