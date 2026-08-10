@@ -1,32 +1,27 @@
 {# orders/templates/orders/checkout_content.html #}
-{# ⚠️ Частичный шаблон для HTMX — без {% extends %}, {% block %}, <html> #}
-
 <main class="mx-auto px-4 sm:px-6 lg:px-8 py-8">
     <div class="max-w-7xl mx-auto">
         <div class="grid lg:grid-cols-2 gap-12">
             
-            <!-- Left Column - Checkout Form -->
+            <!-- Left Column -->
             <div class="space-y-8">
                 
                 <!-- Breadcrumb -->
                 <div class="text-center lg:text-left">
                     <nav class="flex items-center space-x-2 text-sm text-gray-600">
-                        <a href="{% url 'main:index' %}" 
-                           hx-get="{% url 'main:index' %}" 
-                           hx-target="#main-content" 
-                           hx-push-url="true"
-                           class="hover:text-gray-900">ГЛАВНАЯ</a>
+                        <a href="{% url 'main:index' %}" class="hover:text-gray-900">ГЛАВНАЯ</a>
                         <span class="mx-2">/</span>
                         <span class="font-medium text-gray-900">ОФОРМЛЕНИЕ ЗАКАЗА</span>
                     </nav>
                 </div>
 
-                <!-- Contact Information -->
-                <div class="bg-white p-6 shadow-sm">
-                    <h2 class="text-lg font-bold text-black mb-4 tracking-wide">Контактная информация</h2>
+                {# ✅ ИСПРАВЛЕНО: Форма оборачивает ВСЕ поля ввода и кнопку отправки #}
+                <form method="post" id="order-form" action="{% url 'orders:checkout' %}" class="space-y-6">
+                    {% csrf_token %}
                     
-                    <form method="post" id="order-form" action="{% url 'orders:checkout' %}" class="space-y-4">
-                        {% csrf_token %}
+                    <!-- Contact Information -->
+                    <div class="bg-white p-6 shadow-sm">
+                        <h2 class="text-lg font-bold text-black mb-4 tracking-wide">Контактная информация</h2>
                         
                         <div>
                             <label for="{{ form.email.id_for_label }}" class="block text-sm font-medium text-black mb-1">
@@ -38,127 +33,148 @@
                             {% endif %}
                         </div>
                         
-                        <label class="flex items-center space-x-2 cursor-pointer select-none">
+                        <label class="flex items-center space-x-2 cursor-pointer select-none mt-4">
                             <input type="checkbox" name="newsletter" class="h-4 w-4 text-black border-black rounded focus:ring-0">
                             <span class="text-sm text-gray-700">Присылать новости и предложения</span>
                         </label>
                     </div>
                 
-                <!-- Shipping Address -->
-                <div class="bg-white p-6 shadow-sm">
-                    <h2 class="text-lg font-bold text-black mb-4 tracking-wide">Адрес доставки</h2>
-                    <div class="space-y-4">
-                        
-                        <!-- Region -->
-                        <div>
-                            <label for="{{ form.region.id_for_label }}" class="block text-sm font-medium text-black mb-1">
-                                Регион *
-                            </label>
-                            {{ form.region }}
-                            {% if form.region.errors %}
-                                <div class="text-red-500 text-xs mt-1">{{ form.region.errors.0 }}</div>
-                            {% endif %}
-                        </div>
-
-                        <!-- Name Grid -->
-                        <div class="grid grid-cols-2 gap-4">
+                    <!-- Shipping Address -->
+                    <div class="bg-white p-6 shadow-sm">
+                        <h2 class="text-lg font-bold text-black mb-4 tracking-wide">Адрес доставки</h2>
+                        <div class="space-y-4">
+                            
+                            <!-- Region -->
                             <div>
-                                <label for="{{ form.first_name.id_for_label }}" class="block text-sm font-medium text-black mb-1">
-                                    Имя *
+                                <label for="{{ form.region.id_for_label }}" class="block text-sm font-medium text-black mb-1">
+                                    Регион *
                                 </label>
-                                {{ form.first_name }}
-                                {% if form.first_name.errors %}
-                                    <div class="text-red-500 text-xs mt-1">{{ form.first_name.errors.0 }}</div>
+                                {{ form.region }}
+                                {% if form.region.errors %}
+                                    <div class="text-red-500 text-xs mt-1">{{ form.region.errors.0 }}</div>
                                 {% endif %}
                             </div>
-                            <div>
-                                <label for="{{ form.last_name.id_for_label }}" class="block text-sm font-medium text-black mb-1">
-                                    Фамилия *
+
+                            <!-- Name Grid -->
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label for="{{ form.first_name.id_for_label }}" class="block text-sm font-medium text-black mb-1">
+                                        Имя *
+                                    </label>
+                                    {{ form.first_name }}
+                                    {% if form.first_name.errors %}
+                                        <div class="text-red-500 text-xs mt-1">{{ form.first_name.errors.0 }}</div>
+                                    {% endif %}
+                                </div>
+                                <div>
+                                    <label for="{{ form.last_name.id_for_label }}" class="block text-sm font-medium text-black mb-1">
+                                        Фамилия *
+                                    </label>
+                                    {{ form.last_name }}
+                                    {% if form.last_name.errors %}
+                                        <div class="text-red-500 text-xs mt-1">{{ form.last_name.errors.0 }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <!-- Address -->
+                            <div class="relative">
+                                <label for="{{ form.address.id_for_label }}" class="block text-sm font-medium text-black mb-1">
+                                    Адрес *
                                 </label>
-                                {{ form.last_name }}
-                                {% if form.last_name.errors %}
-                                    <div class="text-red-500 text-xs mt-1">{{ form.last_name.errors.0 }}</div>
+                                {{ form.address }}
+                                {% if form.address.errors %}
+                                    <div class="text-red-500 text-xs mt-1">{{ form.address.errors.0 }}</div>
+                                {% endif %}
+                                <div class="absolute right-4 top-9 text-gray-400 pointer-events-none">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                    </svg>
+                                </div>
+                            </div>
+
+                            <!-- City & Postal Code -->
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label for="{{ form.city.id_for_label }}" class="block text-sm font-medium text-black mb-1">
+                                        Город *
+                                    </label>
+                                    {{ form.city }}
+                                    {% if form.city.errors %}
+                                        <div class="text-red-500 text-xs mt-1">{{ form.city.errors.0 }}</div>
+                                    {% endif %}
+                                </div>
+                                <div>
+                                    <label for="{{ form.postal_code.id_for_label }}" class="block text-sm font-medium text-black mb-1">
+                                        Индекс *
+                                    </label>
+                                    {{ form.postal_code }}
+                                    {% if form.postal_code.errors %}
+                                        <div class="text-red-500 text-xs mt-1">{{ form.postal_code.errors.0 }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <!-- Phone -->
+                            <div class="relative">
+                                <label for="{{ form.phone.id_for_label }}" class="block text-sm font-medium text-black mb-1">
+                                    Телефон *
+                                </label>
+                                {{ form.phone }}
+                                {% if form.phone.errors %}
+                                    <div class="text-red-500 text-xs mt-1">{{ form.phone.errors.0 }}</div>
+                                {% endif %}
+                                <div class="absolute right-4 top-9 text-gray-400 pointer-events-none">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"></path>
+                                    </svg>
+                                </div>
+                            </div>
+
+                            <!-- Special Instructions -->
+                            <div>
+                                <label for="{{ form.special_instructions.id_for_label }}" class="block text-sm font-medium text-black mb-1">
+                                    Комментарий к заказу
+                                </label>
+                                {{ form.special_instructions }}
+                                {% if form.special_instructions.errors %}
+                                    <div class="text-red-500 text-xs mt-1">{{ form.special_instructions.errors.0 }}</div>
                                 {% endif %}
                             </div>
-                        </div>
 
-                        <!-- Address -->
-                        <div class="relative">
-                            <label for="{{ form.address.id_for_label }}" class="block text-sm font-medium text-black mb-1">
-                                Адрес *
-                            </label>
-                            {{ form.address }}
-                            {% if form.address.errors %}
-                                <div class="text-red-500 text-xs mt-1">{{ form.address.errors.0 }}</div>
-                            {% endif %}
-                            <div class="absolute right-4 top-9 text-gray-400 pointer-events-none">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                                </svg>
-                            </div>
-                        </div>
-
-                        <!-- City & Postal Code -->
-                        <div class="grid grid-cols-2 gap-4">
-                            <div>
-                                <label for="{{ form.city.id_for_label }}" class="block text-sm font-medium text-black mb-1">
-                                    Город *
+                            <!-- Save Info Checkbox -->
+                            <div class="pt-2">
+                                <label class="flex items-center space-x-2 cursor-pointer select-none">
+                                    <input type="checkbox" name="save_info" class="h-4 w-4 text-black border-black rounded focus:ring-0">
+                                    <span class="text-sm text-gray-700">Сохранить информацию для следующего раза</span>
                                 </label>
-                                {{ form.city }}
-                                {% if form.city.errors %}
-                                    <div class="text-red-500 text-xs mt-1">{{ form.city.errors.0 }}</div>
-                                {% endif %}
-                            </div>
-                            <div>
-                                <label for="{{ form.postal_code.id_for_label }}" class="block text-sm font-medium text-black mb-1">
-                                    Индекс *
-                                </label>
-                                {{ form.postal_code }}
-                                {% if form.postal_code.errors %}
-                                    <div class="text-red-500 text-xs mt-1">{{ form.postal_code.errors.0 }}</div>
-                                {% endif %}
                             </div>
                         </div>
-
-                        <!-- Phone -->
-                        <div class="relative">
-                            <label for="{{ form.phone.id_for_label }}" class="block text-sm font-medium text-black mb-1">
-                                Телефон *
-                            </label>
-                            {{ form.phone }}
-                            {% if form.phone.errors %}
-                                <div class="text-red-500 text-xs mt-1">{{ form.phone.errors.0 }}</div>
-                            {% endif %}
-                            <div class="absolute right-4 top-9 text-gray-400 pointer-events-none">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"></path>
-                                </svg>
-                            </div>
-                        </div>
-
-                        <!-- Special Instructions -->
-                        <div>
-                            <label for="{{ form.special_instructions.id_for_label }}" class="block text-sm font-medium text-black mb-1">
-                                Комментарий к заказу
-                            </label>
-                            {{ form.special_instructions }}
-                            {% if form.special_instructions.errors %}
-                                <div class="text-red-500 text-xs mt-1">{{ form.special_instructions.errors.0 }}</div>
-                            {% endif %}
-                        </div>
-
-                        <!-- Save Info Checkbox -->
-                        <div class="pt-2">
-                            <label class="flex items-center space-x-2 cursor-pointer select-none">
-                                <input type="checkbox" name="save_info" class="h-4 w-4 text-black border-black rounded focus:ring-0">
-                                <span class="text-sm text-gray-700">Сохранить информацию для следующего раза</span>
-                            </label>
+                    </div>
+                    
+                    <!-- Submit Button (внутри формы) -->
+                    <button type="submit" 
+                            class="w-full bg-black text-white py-4 px-6 font-bold hover:bg-gray-800 transition-colors duration-200 flex items-center justify-center space-x-2 rounded-sm group">
+                        <span>Оформить заказ</span>
+                        <svg class="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path>
+                        </svg>
+                    </button>
+                </form>
+                
+                <!-- Global Error Message (после формы, чтобы не ломать верстку при валидации) -->
+                {% if error_message %}
+                <div class="bg-red-50 border-l-4 border-red-500 p-4 rounded-r">
+                    <div class="flex">
+                        <div class="ml-3">
+                            <p class="text-sm text-red-700 font-medium">{{ error_message }}</p>
                         </div>
                     </div>
                 </div>
+                {% endif %}
                 
-                <!-- Payment Method -->
+                <!-- Payment Method (информационный блок, не требует отправки) -->
                 <div class="bg-white p-6 shadow-sm border-l-4 border-black">
                     <h2 class="text-lg font-bold text-black mb-4 tracking-wide">Способ оплаты</h2>
                     
@@ -190,29 +206,8 @@
                     </div>
                 </div>
                 
-                <!-- Global Error Message -->
-                {% if error_message %}
-                <div class="bg-red-50 border-l-4 border-red-500 p-4 rounded-r">
-                    <div class="flex">
-                        <div class="ml-3">
-                            <p class="text-sm text-red-700 font-medium">{{ error_message }}</p>
-                        </div>
-                    </div>
-                </div>
-                {% endif %}
-                
-                <!-- Submit Button -->
-                <button type="submit" 
-                        form="order-form"
-                        class="w-full bg-black text-white py-4 px-6 font-bold hover:bg-gray-800 transition-colors duration-200 flex items-center justify-center space-x-2 rounded-sm group">
-                    <span>Оформить заказ</span>
-                    <svg class="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path>
-                    </svg>
-                </button>
-                
                 <!-- Refund Policy Link -->
-                <div class="text-center pt-4">
+                <div class="text-center pt-2">
                     <a href="#" class="text-xs text-gray-500 hover:text-gray-700 underline decoration-gray-300 hover:decoration-gray-500">
                         Политика возврата и обмена
                     </a>
@@ -220,16 +215,14 @@
                 
             </div>
 
-            <!-- Right Column - Order Summary (Sticky) -->
+            <!-- Right Column - Order Summary -->
             <div class="lg:sticky lg:top-24 h-fit">
                 <div class="bg-white p-6 rounded-sm shadow-sm border border-gray-100">
                     
-                    <!-- Cart Items -->
                     <h3 class="text-lg font-bold text-black mb-4 tracking-wide">Ваш заказ</h3>
                     <div class="space-y-4 mb-6 max-h-96 overflow-y-auto pr-2 custom-scrollbar">
                         {% for item in cart_items %}
                             <div class="flex items-start space-x-4 pb-4 border-b border-gray-100 last:border-0 last:pb-0">
-                                <!-- ✅ Safe Image Fallback -->
                                 <div class="relative flex-shrink-0">
                                     {% if item.product.main_image %}
                                         <img src="{{ item.product.main_image.url }}" 
@@ -247,7 +240,6 @@
                                     </span>
                                 </div>
                                 
-                                <!-- Product Info -->
                                 <div class="flex-1 min-w-0">
                                     <h3 class="font-medium text-sm text-gray-900 truncate leading-tight">
                                         {{ item.product.name }}
@@ -259,7 +251,6 @@
                                     {% endif %}
                                 </div>
                                 
-                                <!-- Price -->
                                 <div class="text-right flex-shrink-0">
                                     <span class="font-medium text-sm text-gray-900">
                                         ₽{{ item.product.price|floatformat:0 }}
@@ -271,7 +262,6 @@
                         {% endfor %}
                     </div>
 
-                    <!-- Order Summary Calculations -->
                     <div id="order-summary" class="space-y-3 border-t border-gray-200 pt-4">
                         <div class="flex justify-between text-sm text-gray-600">
                             <span>Промежуточный итог</span>
@@ -299,7 +289,6 @@
                         </div>
                     </div>
 
-                    <!-- Manual Payment Info Box -->
                     <div class="mt-6 p-4 bg-gray-50 rounded-sm border border-gray-200">
                         <p class="text-xs text-gray-600 leading-relaxed">
                             <strong class="text-black block mb-1">Как работает оплата:</strong>
@@ -316,34 +305,28 @@
 </main>
 
 <script>
+    // === Мягкая UX-подсветка полей при фокусе ===
     document.addEventListener('DOMContentLoaded', function() {
-        // === Мягкая UX-подсветка полей при фокусе ===
         const form = document.getElementById('order-form');
         if (!form) return;
 
         const inputs = form.querySelectorAll('input:not([type="checkbox"]), textarea, select');
-        
         inputs.forEach(input => {
-            // Добавляем плавный переход для бордера
             input.classList.add('transition-colors', 'duration-200');
-            
             input.addEventListener('focus', function() {
                 this.classList.add('border-black', 'ring-1', 'ring-black');
             });
-            
             input.addEventListener('blur', function() {
                 this.classList.remove('border-black', 'ring-1', 'ring-black');
             });
         });
 
-        // === Авто-скролл к первой ошибке при загрузке (если форма вернулась с ошибками) ===
+        // Авто-скролл к первой ошибке при возврате с валидацией
         const firstError = form.querySelector('.text-red-500');
         if (firstError) {
-            const errorField = firstError.closest('div'); // Находим обертку поля
+            const errorField = firstError.closest('div');
             if (errorField) {
-                // Плавный скролл к ошибке
                 errorField.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                // Подсвечиваем поле красным, если Django не добавил класс
                 const input = errorField.querySelector('input, textarea, select');
                 if (input) input.classList.add('border-red-500', 'focus:border-red-500');
             }
@@ -352,19 +335,8 @@
 </script>
 
 <style>
-    /* Кастомный скроллбар для списка товаров (опционально) */
-    .custom-scrollbar::-webkit-scrollbar {
-        width: 6px;
-    }
-    .custom-scrollbar::-webkit-scrollbar-track {
-        background: #f9fafb;
-        border-radius: 3px;
-    }
-    .custom-scrollbar::-webkit-scrollbar-thumb {
-        background: #d1d5db;
-        border-radius: 3px;
-    }
-    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-        background: #9ca3af;
-    }
+    .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+    .custom-scrollbar::-webkit-scrollbar-track { background: #f9fafb; border-radius: 3px; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 3px; }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
 </style>
