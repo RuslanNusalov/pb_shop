@@ -708,6 +708,15 @@
         // Вызываем при загрузке (на всякий случай)
         document.addEventListener('DOMContentLoaded', initDottedInputs);
         // После HTMX-запросов вызывать не обязательно — делегирование работает всегда
+
+        // Перезагрузка картинок после HTMX
+        document.body.addEventListener('htmx:afterSwap', function(evt) {
+            evt.target.querySelectorAll('img').forEach(function(img) {
+                if (img.complete === false) {
+                    img.src = img.src; // Принудительная перезагрузка
+                }
+            });
+        });
     </script>
     <!-- Footer -->
     <footer class="bg-black text-white pt-12 pb-8 mt-auto">

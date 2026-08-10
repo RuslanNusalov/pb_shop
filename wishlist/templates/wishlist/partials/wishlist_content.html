@@ -19,7 +19,7 @@
                     
                     <!-- ✅ ЗАЩИТА 2: Проверяем, есть ли картинка -->
                     {% if product.main_image %}
-                        <img src="{{ product.main_image.url }}" alt="{{ product.name }}" 
+                        <img src="{{ product.main_image.url }}" alt="{{ product.name }}" loading="eager"
                              class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
                     {% else %}
                         <div class="w-full h-full bg-gray-200 flex items-center justify-center">
