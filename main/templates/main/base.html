@@ -343,9 +343,98 @@
         </main> {% endcomment %}
         {% endblock %}
     </div>
+    <!-- === ГЛОБАЛЬНЫЙ СКРИПТ (вставь перед </body> в base.html) === -->
     <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
     <script>
-        // === Инициализация мобильного меню ===
+        // ========================================================================
+        // 1. ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ (Helpers)
+        // ========================================================================
+        
+        // Обновление счётчика корзины в хедере
+        window.updateHeaderCartCount = function(count) {
+            const desktopCart = document.getElementById('desktopCart');
+            const mobileCart = document.getElementById('mobileCart');
+            const mobileCartHeader = document.getElementById('mobileCartHeader');
+            const cartText = `КОРЗИНА (${count})`;
+            
+            if (desktopCart) desktopCart.textContent = cartText;
+            if (mobileCart) mobileCart.textContent = cartText;
+            if (mobileCartHeader) mobileCartHeader.textContent = cartText;
+        };
+        
+        // Показ toast-уведомлений
+        window.showToast = function(message, type = 'success') {
+            // Удаляем старые тосты
+            document.querySelectorAll('.toast-notification').forEach(el => el.remove());
+            
+            const toast = document.createElement('div');
+            const bgClass = type === 'error' ? 'bg-red-600' : 'bg-green-600';
+            const icon = type === 'error' ? '⚠️' : '✅';
+            
+            toast.className = `toast-notification fixed bottom-5 right-5 ${bgClass} text-white px-5 py-3 rounded-lg shadow-xl z-[100] flex items-center gap-2 transform transition-all duration-300 translate-y-2 opacity-0`;
+            toast.innerHTML = `<span>${icon}</span><span>${message}</span>`;
+            
+            document.body.appendChild(toast);
+            
+            // Анимация появления
+            requestAnimationFrame(() => {
+                toast.classList.remove('translate-y-2', 'opacity-0');
+            });
+            
+            // Авто-скрытие
+            setTimeout(() => {
+                toast.classList.add('translate-y-2', 'opacity-0');
+                setTimeout(() => toast.remove(), 300);
+            }, 3500);
+        };
+        
+        // AJAX-запрос для обновления счётчика корзины
+        function updateCartCount() {
+            fetch('{% url "cart:cart_count" %}')
+                .then(response => response.json())
+                .then(data => {
+                    window.updateHeaderCartCount(data.total_items);
+                })
+                .catch(err => console.error('Ошибка обновления корзины:', err));
+        }
+        
+        // Открытие модального окна корзины через HTMX
+        function openCart() {
+            htmx.ajax('GET', '{% url "cart:cart_modal" %}', {
+                target: '#cart-container',
+                swap: 'innerHTML'
+            });
+        }
+
+        // ========================================================================
+        // 2. ОБРАБОТЧИКИ ДЛЯ КОРЗИНЫ (HTMX callbacks)
+        // ========================================================================
+        
+        function onAddToCartStart(form) {
+            const btn = document.getElementById('add-to-cart-btn');
+            const text = document.getElementById('btn-text');
+            const loader = document.getElementById('btn-loader');
+            
+            if (btn) btn.disabled = true;
+            if (text) text.textContent = 'ДОБАВЛЯЕМ...';
+            if (loader) loader.classList.remove('hidden');
+        }
+
+        function onAddToCartEnd(form) {
+            const btn = document.getElementById('add-to-cart-btn');
+            const text = document.getElementById('btn-text');
+            const loader = document.getElementById('btn-loader');
+            
+            if (btn) btn.disabled = false;
+            if (text) text.textContent = 'ДОБАВИТЬ В КОРЗИНУ';
+            if (loader) loader.classList.add('hidden');
+        }
+
+        // ========================================================================
+        // 3. ИНИЦИАЛИЗАЦИЯ КОМПОНЕНТОВ
+        // ========================================================================
+        
+        // Мобильное меню
         function initMobileMenu() {
             const menuToggle = document.getElementById('menuToggle');
             const closeMenu = document.getElementById('closeMenu');
@@ -368,48 +457,44 @@
                 document.body.style.overflow = '';
             }
 
-            menuToggle.onclick = openMobileMenu;
-            closeMenu.onclick = closeMobileMenu;
-            overlay.onclick = closeMobileMenu;
+            // Вешаем обработчики только если они ещё не привязаны
+            if (!menuToggle.dataset.menuHandlersAttached) {
+                menuToggle.onclick = openMobileMenu;
+                closeMenu.onclick = closeMobileMenu;
+                overlay.onclick = closeMobileMenu;
+                menuToggle.dataset.menuHandlersAttached = 'true';
+            }
         }
-
-        // === Инициализация кнопок выбора размера (для product_detail БЕЗОПАСНАЯ ВЕРСИЯ) ===
+        
+        // Кнопки выбора размера (для страницы товара)
         function initSizeButtons() {
             try {
-                // 🔍 Быстрая проверка: если нет ключевых элементов — выходим сразу
                 const sizeSelector = document.getElementById('size-selector');
                 const addToCartBtn = document.getElementById('add-to-cart-btn');
                 const sizeInput = document.getElementById('selected-size-id');
                 
-                // Если хоть одного элемента нет — мы НЕ на странице товара
-                if (!sizeSelector || !addToCartBtn || !sizeInput) {
-                    return; // Тихо выходим, без ошибок в консоли
-                }
+                // Если нет ключевых элементов — мы не на странице товара
+                if (!sizeSelector || !addToCartBtn || !sizeInput) return;
                 
                 const sizeLabels = document.querySelectorAll('.size-label');
                 const sizeRadios = document.querySelectorAll('input[name="size_id"]');
                 
-                // Если нет размеров — тоже выходим
                 if (sizeLabels.length === 0 || sizeRadios.length === 0) return;
                 
-                // Функция активации кнопки "В корзину"
                 function activateButton(radio) {
                     if (!radio || radio.disabled) return;
-                    
                     const btnText = document.getElementById('btn-text');
                     
                     sizeInput.value = radio.value;
                     addToCartBtn.disabled = false;
                     if (btnText) btnText.textContent = 'ДОБАВИТЬ В КОРЗИНУ';
                     
-                    // Визуальное выделение
                     sizeLabels.forEach(l => l.classList.remove('selected'));
                     radio.closest('.size-label')?.classList.add('selected');
                 }
                 
-                // Вешаем обработчики ТОЛЬКО один раз (защита от дублирования)
+                // Защита от дублирования обработчиков
                 if (!addToCartBtn.dataset.sizeHandlersAttached) {
-                    // Клик по label
                     sizeLabels.forEach(label => {
                         label.addEventListener('click', function(e) {
                             const radio = this.querySelector('input[name="size_id"]');
@@ -422,19 +507,16 @@
                         });
                     });
                     
-                    // Change на radio
                     sizeRadios.forEach(radio => {
                         radio.addEventListener('change', function() {
                             if (!this.disabled) activateButton(this);
                         });
                     });
                     
-                    // Помечаем, что обработчики уже навешаны
                     addToCartBtn.dataset.sizeHandlersAttached = 'true';
-                    console.log('✅ Size button handlers attached');
                 }
                 
-                // 🔥 Авто-выбор первого доступного размера при загрузке
+                // Авто-выбор первого доступного размера
                 const firstAvailable = document.querySelector('input[name="size_id"]:not(:disabled)');
                 const alreadyChecked = document.querySelector('input[name="size_id"]:checked');
                 
@@ -442,26 +524,25 @@
                     firstAvailable.checked = true;
                 }
                 
-                // Синхронизируем кнопку с текущим состоянием
+                // Синхронизация кнопки с текущим выбором
                 const checked = document.querySelector('input[name="size_id"]:checked:not(:disabled)');
-                if (checked) {
-                    activateButton(checked);
-                }
+                if (checked) activateButton(checked);
                 
             } catch (error) {
-                // 🛡️ Ловим любые ошибки, чтобы не ломать HTMX-навигацию
-                console.warn('⚠️ initSizeButtons error (не критично):', error.message);
+                console.warn('⚠️ initSizeButtons error:', error.message);
             }
         }
-        // === Инициализация Swiper ===
+        
+        // Инициализация Swiper (слайдеры)
         function initSwipers() {
             if (typeof Swiper === 'undefined') return;
             
-            if (window.mainSwiper) window.mainSwiper.destroy(true, true);
-            if (window.productSwiper) window.productSwiper.destroy(true, true);
+            // Уничтожаем старые экземпляры перед созданием новых (защита от дублей)
+            if (window.mainSwiper) { window.mainSwiper.destroy(true, true); window.mainSwiper = null; }
+            if (window.productSwiper) { window.productSwiper.destroy(true, true); window.productSwiper = null; }
             
             const bannerSwiperEl = document.querySelector('.main-swiper');
-            if (bannerSwiperEl) {
+            if (bannerSwiperEl && !bannerSwiperEl.dataset.swiperInited) {
                 window.mainSwiper = new Swiper(bannerSwiperEl, {
                     loop: true,
                     autoplay: { delay: 5000, disableOnInteraction: false },
@@ -469,10 +550,11 @@
                     effect: 'fade',
                     fadeEffect: { crossFade: true }
                 });
+                bannerSwiperEl.dataset.swiperInited = 'true';
             }
             
             const productSwiperEl = document.querySelector('.product-swiper');
-            if (productSwiperEl) {
+            if (productSwiperEl && !productSwiperEl.dataset.swiperInited) {
                 window.productSwiper = new Swiper(productSwiperEl, {
                     slidesPerView: 2,
                     spaceBetween: 16,
@@ -483,18 +565,16 @@
                     },
                     navigation: { nextEl: '.swiper-button-next', prevEl: '.swiper-button-prev' },
                 });
+                productSwiperEl.dataset.swiperInited = 'true';
             }
         }
-
-        // === Инициализация кнопок избранного ===
+        
+        // Кнопки "В избранное"
         function initWishlistButtons() {
-            // Находим все кнопки с hx-post, ведущие на wishlist/toggle
             const wishlistButtons = document.querySelectorAll('[hx-post*="wishlist/toggle"]');
             
             wishlistButtons.forEach(btn => {
-                // Защита от дублирования обработчиков
                 if (!btn.dataset.wishlistAttached) {
-                    // Визуальная обратная связь при запросе
                     btn.addEventListener('htmx:beforeRequest', function() {
                         btn.disabled = true;
                         btn.classList.add('opacity-50', 'cursor-wait');
@@ -505,94 +585,40 @@
                         btn.classList.remove('opacity-50', 'cursor-wait');
                     });
                     
-                    // Помечаем, что обработчики уже навешаны
                     btn.dataset.wishlistAttached = 'true';
                 }
             });
         }
-
-        // === Глобальные функции ===
         
-        window.updateHeaderCartCount = function(count) {
-            const desktopCart = document.getElementById('desktopCart');
-            const mobileCart = document.getElementById('mobileCart');
-            const mobileCartHeader = document.getElementById('mobileCartHeader');
-            const cartText = `КОРЗИНА (${count})`;
+        // Поля ввода с пунктирной обводкой (профиль)
+        function initDottedInputs() {
+            document.addEventListener('focus', function(e) {
+                if (e.target.classList.contains('dotted-input')) {
+                    e.target.parentElement?.classList.add('focused');
+                }
+            }, true);
             
-            if (desktopCart) desktopCart.textContent = cartText;
-            if (mobileCart) mobileCart.textContent = cartText;
-            if (mobileCartHeader) mobileCartHeader.textContent = cartText;
-        };
-        
-        window.showToast = function(message, type = 'success') {
-            document.querySelectorAll('.toast-notification').forEach(el => el.remove());
-            
-            const toast = document.createElement('div');
-            const bgClass = type === 'error' ? 'bg-red-600' : 'bg-green-600';
-            const icon = type === 'error' ? '⚠️' : '✅';
-            
-            toast.className = `toast-notification fixed bottom-5 right-5 ${bgClass} text-white px-5 py-3 rounded-lg shadow-xl z-[100] flex items-center gap-2 transform transition-all duration-300 translate-y-2 opacity-0`;
-            toast.innerHTML = `<span>${icon}</span><span>${message}</span>`;
-            
-            document.body.appendChild(toast);
-            
-            requestAnimationFrame(() => {
-                toast.classList.remove('translate-y-2', 'opacity-0');
-            });
-            
-            setTimeout(() => {
-                toast.classList.add('translate-y-2', 'opacity-0');
-                setTimeout(() => toast.remove(), 300);
-            }, 3500);
-        };
-
-        // === Корзина ===
-        
-        function updateCartCount() {
-            fetch('{% url "cart:cart_count" %}')
-                .then(response => response.json())
-                .then(data => {
-                    window.updateHeaderCartCount(data.total_items);
-                })
-                .catch(err => console.error('Ошибка обновления корзины:', err));
-        }
-        
-        function openCart() {
-            htmx.ajax('GET', '{% url "cart:cart_modal" %}', {
-                target: '#cart-container',
-                swap: 'innerHTML'
-            });
+            document.addEventListener('blur', function(e) {
+                if (e.target.classList.contains('dotted-input')) {
+                    e.target.parentElement?.classList.remove('focused');
+                }
+            }, true);
         }
 
-        // === Обработчики для добавления в корзину (HTMX) ===
-        function onAddToCartStart(form) {
-            const btn = document.getElementById('add-to-cart-btn');
-            const text = document.getElementById('btn-text');
-            const loader = document.getElementById('btn-loader');
-            
-            if (btn) btn.disabled = true;
-            if (text) text.textContent = 'ДОБАВЛЯЕМ...';
-            if (loader) loader.classList.remove('hidden');
-        }
-
-        function onAddToCartEnd(form) {
-            const btn = document.getElementById('add-to-cart-btn');
-            const text = document.getElementById('btn-text');
-            const loader = document.getElementById('btn-loader');
-            
-            if (btn) btn.disabled = false;
-            if (text) text.textContent = 'ДОБАВИТЬ В КОРЗИНУ';
-            if (loader) loader.classList.add('hidden');
-        }
-
-        // === Запуск при загрузке и после HTMX ===
+        // ========================================================================
+        // 4. ГЛАВНЫЕ СОБЫТИЯ (DOMContentLoaded + HTMX)
+        // ========================================================================
+        
+        // Запуск при первой загрузке страницы
         document.addEventListener('DOMContentLoaded', function() {
             initMobileMenu();
-            initSizeButtons();  // ✅ Добавили инициализацию размеров
+            initSizeButtons();
             initWishlistButtons();
             initSwipers();
+            initDottedInputs();
             updateCartCount();
             
+            // Обработчики для ссылок корзины
             const desktopCart = document.getElementById('desktopCart');
             const mobileCart = document.getElementById('mobileCart');
             const mobileCartHeader = document.getElementById('mobileCartHeader');
@@ -607,19 +633,26 @@
             });
         });
         
+        // ✅ ЕДИНЫЙ ЦЕНТРАЛЬНЫЙ ОБРАБОТЧИК HTMX:afterSwap
         document.addEventListener('htmx:afterSwap', function(event) {
+            const swappedContent = event.detail.target || event.detail.elt;
+            
+            // 1. Переинициализация компонентов в новом контенте
             initMobileMenu();
-            initSizeButtons();  // ✅ Добавили инициализацию размеров после HTMX
+            initSizeButtons();
             initSwipers();
             initWishlistButtons();
             
-            const target = event.detail.target;
-            if (target && target.classList.contains('fade-in')) {
-                target.classList.remove('fade-in');
-                void target.offsetWidth;
-                target.classList.add('fade-in');
+            // 2. Анимация fade-in для нового контента
+            if (swappedContent && swappedContent.classList) {
+                if (swappedContent.classList.contains('fade-in')) {
+                    swappedContent.classList.remove('fade-in');
+                    void swappedContent.offsetWidth; // reflow для перезапуска анимации
+                    swappedContent.classList.add('fade-in');
+                }
             }
             
+            // 3. Закрытие мобильного меню после перехода (UX)
             const mobileMenu = document.getElementById('mobileMenu');
             const overlay = document.getElementById('overlay');
             const menuToggle = document.getElementById('menuToggle');
@@ -629,10 +662,25 @@
                 menuToggle?.classList.remove('active');
                 document.body.style.overflow = '';
             }
+            
+            // 🖼️ 4. ПРИНУДИТЕЛЬНАЯ ЗАГРУЗКА КАРТИНОК (исправление бага с HTMX)
+            if (swappedContent && swappedContent.querySelectorAll) {
+                swappedContent.querySelectorAll('img').forEach(function(img) {
+                    // Если картинка ещё не загрузилась — перезагружаем её
+                    if (!img.complete) {
+                        const src = img.src;
+                        img.removeAttribute('src');
+                        setTimeout(() => { img.src = src; }, 10);
+                    }
+                });
+            }
         });
 
-        // === Слушатели событий ===
+        // ========================================================================
+        // 5. ГЛОБАЛЬНЫЕ СЛУШАТЕЛИ СОБЫТИЙ (Custom Events)
+        // ========================================================================
         
+        // Обновление корзины при кастомном событии
         document.addEventListener('cartUpdated', function(e) {
             if (e.detail && e.detail.total !== undefined) {
                 document.querySelectorAll('.cart-count').forEach(el => el.textContent = e.detail.total);
@@ -640,6 +688,7 @@
             }
         });
         
+        // Обновление избранного при кастомном событии
         document.addEventListener('wishlistUpdated', function(e) {
             if (e.detail?.count === undefined) return;
             const count = e.detail.count;
@@ -659,6 +708,7 @@
             });
         });
         
+        // Подсветка активной ссылки в меню после HTMX-перехода
         document.addEventListener('htmx:afterSettle', function() {
             const currentPath = window.location.pathname.replace(/\/$/, '');
             document.querySelectorAll('.nav-link, .mobile-nav-link').forEach(link => {
@@ -670,6 +720,7 @@
             });
         });
         
+        // Закрытие мобильного меню при ресайзе окна
         window.addEventListener('resize', function() {
             if (window.innerWidth >= 768) {
                 const mobileMenu = document.getElementById('mobileMenu');
@@ -682,40 +733,12 @@
             }
         });
 
+        // CSRF-токен для HTMX-запросов
         document.body.addEventListener('htmx:configRequest', (event) => {
             const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
             if (token) {
                 event.detail.headers['X-CSRFToken'] = token;
             }
-        });
-        // === Инициализация dotted-input (редактирование профиля) ===
-        function initDottedInputs() {
-            // Используем делегирование: вешаем обработчик на document,
-            // а не на каждый input отдельно
-            document.addEventListener('focus', function(e) {
-                if (e.target.classList.contains('dotted-input')) {
-                    e.target.parentElement?.classList.add('focused');
-                }
-            }, true); // true = capture phase, чтобы ловить focus (он не всплывает)
-            
-            document.addEventListener('blur', function(e) {
-                if (e.target.classList.contains('dotted-input')) {
-                    e.target.parentElement?.classList.remove('focused');
-                }
-            }, true);
-        }
-
-        // Вызываем при загрузке (на всякий случай)
-        document.addEventListener('DOMContentLoaded', initDottedInputs);
-        // После HTMX-запросов вызывать не обязательно — делегирование работает всегда
-
-        // Перезагрузка картинок после HTMX
-        document.body.addEventListener('htmx:afterSwap', function(evt) {
-            evt.target.querySelectorAll('img').forEach(function(img) {
-                if (img.complete === false) {
-                    img.src = img.src; // Принудительная перезагрузка
-                }
-            });
         });
     </script>
     <!-- Footer -->
