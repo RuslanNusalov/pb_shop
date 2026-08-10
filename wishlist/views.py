@@ -65,21 +65,18 @@ class WishlistListView(TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         
-        # Получаем или создаем вишлист для текущего пользователя
         wishlist, _ = Wishlist.objects.get_or_create(user=self.request.user)
         
-        # ✅ ИСПРАВЛЕНО: 
-        # 1. Убрали 'main_image' из select_related (это не связь, а поле).
-        # 2. Оставили 'category' (это ForeignKey, его нужно подгружать через join).
-        # 3. Используем prefetch_related для картинок (если есть отдельная модель Image).
         products = wishlist.products.select_related(
-            'category'  # Только связи!
+            'product',
+            'product__category',
+            'size'
         ).prefetch_related(
-            'images'    # ManyToMany или Reverse FK для дополнительных фото
-        ).order_by('-id') # Сортируем по ID товара (новые первыми)
+            'product__images'  # Если есть M2M с дополнительными фото
+        ).order_by('-id')  # Сортировка по новизне
         
         context['wishlist'] = wishlist
-        context['products'] = products
+        context['products'] = products  # Это queryset ProductSize
         context['wishlist_count'] = products.count()
         
         return context
