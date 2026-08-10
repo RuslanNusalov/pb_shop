@@ -4,7 +4,7 @@
     {% if orders %}
         <div class="space-y-6">
             {% for order in orders %}
-            <!-- ✅ Карточка ОДНОГО заказа -->
+            <!-- Карточка заказа с полной информацией -->
             <div class="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow">
                 
                 <!-- Заголовок заказа -->
@@ -34,11 +34,11 @@
                     </div>
                 </div>
 
-                <!-- Товары внутри заказа -->
+                <!-- Товары с фото и размером -->
                 <div class="divide-y divide-gray-100">
                     {% for item in order.items.all %}
                     <div class="flex items-center gap-4 p-4">
-                        <!-- ✅ Фото с безопасным fallback -->
+                        <!-- Фото товара -->
                         <div class="w-16 h-16 flex-shrink-0 bg-gray-100 rounded-md overflow-hidden border border-gray-200">
                             {% if item.product_image %}
                                 <img src="{{ item.product_image.url }}" alt="{{ item.product_name }}" class="w-full h-full object-cover">
@@ -53,16 +53,16 @@
                             {% endif %}
                         </div>
                         
-                        <!-- Информация о товаре -->
+                        <!-- Информация -->
                         <div class="flex-1 min-w-0">
                             <p class="text-sm font-medium text-gray-900 truncate">{{ item.product_name }}</p>
                             <p class="text-xs text-gray-500 mt-1">
-                                {% if item.product_size %}Размер: {{ item.product_size }} • {% endif %}
+                                {% if item.product_size %}Размер: {{ item.product_size.size.name }} • {% endif %}
                                 {{ item.quantity }} шт. × ₽{{ item.price|floatformat:0 }}
                             </p>
                         </div>
                         
-                        <!-- Стоимость позиции (лучше брать из модели, а не умножать в шаблоне) -->
+                        <!-- Стоимость -->
                         <div class="text-sm font-semibold text-gray-900 whitespace-nowrap">
                             ₽{{ item.total_price|default:item.price|floatformat:0 }}
                         </div>
@@ -73,7 +73,6 @@
             {% endfor %}
         </div>
     {% else %}
-        <!-- Пустое состояние -->
         <div class="text-center py-16 bg-white border border-gray-200 rounded-lg shadow-sm">
             <svg class="mx-auto h-12 w-12 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
