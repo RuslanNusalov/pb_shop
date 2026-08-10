@@ -393,7 +393,7 @@
             fetch('{% url "cart:cart_count" %}')
                 .then(response => response.json())
                 .then(data => {
-                    window.updateHeaderCartCount(data.total_items);
+                    window.updateHeaderCartCount(data.count);
                 })
                 .catch(err => console.error('Ошибка обновления корзины:', err));
         }
@@ -682,12 +682,13 @@
         
         // Обновление корзины при кастомном событии
         document.addEventListener('cartUpdated', function(e) {
-            if (e.detail && e.detail.total !== undefined) {
-                document.querySelectorAll('.cart-count').forEach(el => el.textContent = e.detail.total);
-                window.updateHeaderCartCount(e.detail.total);
+            if (e.detail) {
+                // ✅ Берем 'count' (количество), а не 'total' (сумма)
+                const count = e.detail.count || e.detail.total_items || 0;
+                window.updateHeaderCartCount(count);
             }
         });
-        
+
         // Обновление избранного при кастомном событии
         document.addEventListener('wishlistUpdated', function(e) {
             if (e.detail?.count === undefined) return;
