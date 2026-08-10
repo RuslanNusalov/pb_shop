@@ -95,7 +95,7 @@
                             Количество: <strong>{{ item.quantity }}</strong>
                         </span>
                         <span class="text-sm font-medium text-gray-900">
-                            ₽{{ item.price }}
+                            ₽{{ item.total_price }}
                         </span>
                     </div>
                 </div>
@@ -103,7 +103,7 @@
                 <!-- Item Total -->
                 <div class="text-right">
                     <p class="font-bold text-gray-900">
-                        ₽{{ item.get_total_price|default:item.price|multiply:item.quantity }}
+                        ₽{{ item.get_total_price|default:item.total_price|multiply:item.quantity }}
                     </p>
                 </div>
             </div>

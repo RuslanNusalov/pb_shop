@@ -1,0 +1,83 @@
+<div class="min-h-screen flex items-center justify-center py-12">
+    <div class="bg-white p-8 rounded-lg shadow-lg w-full max-w-md mx-4">
+        <h1 class="text-2xl font-bold text-gray-900 mb-8 text-center tracking-wide">
+            ВХОД В АККАУНТ
+        </h1>
+        
+        {% if messages %}
+            <div class="mb-4">
+                {% for message in messages %}
+                    <div class="text-sm text-center 
+                        {% if message.tags == 'error' %}text-red-500
+                        {% elif message.tags == 'success' %}text-green-500
+                        {% else %}text-blue-500{% endif %}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+        
+        {# ✅ Ошибки формы (неверный пароль, пользователь не найден) #}
+        {% if form.non_field_errors %}
+            <div class="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
+                {% for error in form.non_field_errors %}
+                    <p class="text-red-600 text-sm text-center">{{ error }}</p>
+                {% endfor %}
+            </div>
+        {% endif %}
+        
+        <form method="post" class="space-y-6" 
+              hx-post="{% url 'users:login' %}" 
+              hx-target="#main-content"
+              hx-swap="innerHTML">
+            {% csrf_token %}
+            
+            <div>
+                {{ form.username }}
+                {% if form.username.errors %}
+                    <div class="text-red-500 text-xs mt-1">{{ form.username.errors }}</div>
+                {% endif %}
+            </div>
+            
+            <div>
+                {{ form.password }}
+                {% if form.password.errors %}
+                    <div class="text-red-500 text-xs mt-1">{{ form.password.errors }}</div>
+                {% endif %}
+            </div>
+            
+            {# Скрытое поле next для редиректа после входа #}
+            {% if next %}
+                <input type="hidden" name="next" value="{{ next }}">
+            {% endif %}
+            
+            <div class="flex items-center justify-between pt-2">
+                <label class="flex items-center text-sm text-gray-600">
+                    <input type="checkbox" name="remember" class="mr-2 rounded border-gray-300">
+                    Запомнить меня
+                </label>
+                <a href="#" class="text-sm text-gray-500 hover:text-gray-700">
+                    Забыли пароль?
+                </a>
+            </div>
+            
+            <div class="grid grid-cols-2 gap-4 pt-4">
+                <button 
+                    type="submit"
+                    class="bg-black hover:bg-gray-800 text-white font-semibold py-3 px-6 transition-colors duration-200 text-sm tracking-wide w-full"
+                >
+                    ВОЙТИ
+                </button>
+                <a 
+                    href="{% url 'users:register' %}"
+                    hx-get="{% url 'users:register' %}"
+                    hx-target="#main-content"
+                    hx-push-url="true"
+                    class="border-2 border-gray-300 hover:border-gray-400 text-gray-700 hover:text-gray-900 font-semibold py-3 px-6 transition-colors duration-200 text-sm tracking-wide text-center flex items-center justify-center"
+                >
+                    РЕГИСТРАЦИЯ
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
