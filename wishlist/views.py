@@ -60,19 +60,24 @@ class WishlistListView(TemplateView):
     template_name = 'wishlist/wishlist_list.html'
     partial_template_name = 'wishlist/partials/wishlist_content.html'
 
+    # wishlist/views.py
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         
+        # Получаем или создаем вишлист для текущего пользователя
         wishlist, _ = Wishlist.objects.get_or_create(user=self.request.user)
         
+        # ✅ ИСПРАВЛЕНО: 
+        # 1. Убрали 'main_image' из select_related (это не связь, а поле).
+        # 2. Оставили 'category' (это ForeignKey, его нужно подгружать через join).
+        # 3. Используем prefetch_related для картинок (если есть отдельная модель Image).
         products = wishlist.products.select_related(
-            'product',              # ✅ Загружаем сам товар одним запросом
-            'product__category',    # ✅ И его категорию
-            'product__main_image'   # ✅ Django автоматически подтянет ImageField
+            'category'  # Только связи!
         ).prefetch_related(
-            'product__images'
-        ).order_by('-id') 
-
+            'images'    # ManyToMany или Reverse FK для дополнительных фото
+        ).order_by('-id') # Сортируем по ID товара (новые первыми)
+        
         context['wishlist'] = wishlist
         context['products'] = products
         context['wishlist_count'] = products.count()
