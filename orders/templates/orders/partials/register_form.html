@@ -1,31 +1,25 @@
-{% load static %}
-{% extends "main/base.html" %}
+{# users/templates/users/partials/register_form.html #}
+{# ️ Частичный шаблон для HTMX — без {% extends %}, {% block %}, <html>, <head> #}
 
-{% block title %}Регистрация | Правый Берег{% endblock %}
-
-{% block content %}
 <div class="min-h-screen flex items-center justify-center py-12">
     <div class="bg-white p-8 rounded-lg shadow-lg w-full max-w-md mx-4">
         <h1 class="text-2xl font-bold text-gray-900 mb-8 text-center tracking-wide">
             СОЗДАТЬ АККАУНТ
         </h1>
         
-        {% if messages %}
-            <div class="mb-4">
-                {% for message in messages %}
-                    <div class="text-sm text-center 
-                        {% if message.tags == 'error' %}text-red-500
-                        {% elif message.tags == 'success' %}text-green-500
-                        {% else %}text-blue-500{% endif %}">
-                        {{ message }}
-                    </div>
+        {# ✅ Глобальные ошибки формы (например, несовпадение паролей) #}
+        {% if form.non_field_errors %}
+            <div class="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
+                {% for error in form.non_field_errors %}
+                    <p class="text-red-600 text-sm text-center">{{ error }}</p>
                 {% endfor %}
             </div>
         {% endif %}
         
         <form method="post" class="space-y-6" 
               hx-post="{% url 'users:register' %}" 
-              hx-target="#main-content">
+              hx-target="#main-content"
+              hx-swap="innerHTML">
             {% csrf_token %}
             
             <div class="grid grid-cols-2 gap-4">
@@ -69,7 +63,6 @@
                 {% if form.password2.errors %}
                     <div class="text-red-500 text-xs mt-1">{{ form.password2.errors }}</div>
                 {% endif %}
-                {# ✅ Убран скрытый #passwordError: Django уже валидирует совпадение паролей на сервере #}
             </div>
             
             <div class="grid grid-cols-2 gap-4 pt-4">
@@ -92,4 +85,3 @@
         </form>
     </div>
 </div>
-{% endblock %}

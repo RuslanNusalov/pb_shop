@@ -1,105 +1,137 @@
 {% load static %}
 
-<div class="max-w-6xl mx-auto">
-    <h1 class="text-3xl font-bold text-gray-900 mb-8 text-center tracking-wide">
-        ПРИВЕТ, {{ request.user.first_name|upper }} {{ request.user.last_name|upper }}
-    </h1>
-    
-    {% if messages %}
-        <div class="mb-4">
-            {% for message in messages %}
-                <div class="text-red-500 text-sm text-center">{{ message }}</div>
-            {% endfor %}
-        </div>
-    {% endif %}
-    
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <!-- Sidebar -->
-        <div class="col-span-1">
-            <div class="bg-white p-6 rounded-lg shadow-lg">
-                <ul class="space-y-4">
-                    <li class="nav-item">
-                        <a href="{% url 'users:profile' %}" 
-                            hx-get="{% url 'users:profile' %}" 
-                            hx-target="#main-content" 
-                            hx-push-url="true"
-                            class="flex items-center text-gray-700 font-semibold text-sm tracking-wide hover:text-gray-900 {% if request.resolver_match.url_name == 'profile' %}text-gray-900 border-l-4 border-gray-500 pl-2{% endif %}">
-                            ЛИЧНЫЙ КАБИНЕТ
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a href="{% url 'users:order_history' %}" 
-                            hx-get="{% url 'users:order_history' %}"
-                            hx-target="#main-content"
-                            hx-push-url="true"
-                            class="flex items-center text-gray-700 font-semibold text-sm tracking-wide hover:text-gray-900 {% if request.resolver_match.url_name == 'order_history' %}text-gray-900 border-l-4 border-gray-500 pl-2{% endif %}">
-                            ИСТОРИЯ ЗАКАЗОВ
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a href="{% url 'users:logout' %}" class="block text-gray-700 font-semibold text-sm tracking-wide hover:text-red-600">
-                            ВЫХОД
-                        </a>
-                    </li>
-                </ul>
-            </div>
-        </div>
+<div id="main-content" class="min-h-screen p-8 fade-in">
+    <div class="max-w-6xl mx-auto">
+        <h1 class="text-3xl font-bold text-gray-900 mb-8 text-center tracking-wide">
+            ПРИВЕТ, {{ request.user.first_name|upper }} {{ request.user.last_name|upper }}
+        </h1>
         
-        <!-- Main Content -->
-        <div class="col-span-3">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <!-- Account Details -->
-                <div class="bg-white p-6 rounded-lg shadow-lg card" id="account-details-content">
-                    <h2 class="text-xl font-semibold text-gray-900 mb-4 tracking-wide">
-                        АДРЕС ДОСТАВКИ
-                    </h2>
-                    <div class="space-y-2">
-                        <p class="text-sm text-gray-700">Адрес по умолчанию</p>
-                        <p class="text-sm text-gray-700">{{ request.user.first_name }} {{ request.user.last_name }}</p>
-                        <p class="text-sm text-gray-700">{{ request.user.address|default:"" }}</p>
-                        <p class="text-sm text-gray-700">{{ request.user.city|default:"" }}</p>
+        {% if messages %}
+            <div class="mb-4">
+                {% for message in messages %}
+                    <div class="text-sm text-center 
+                        {% if message.tags == 'error' %}text-red-500
+                        {% elif message.tags == 'success' %}text-green-500
+                        {% elif message.tags == 'warning' %}text-yellow-500
+                        {% else %}text-blue-500{% endif %}">
+                        {{ message }}
                     </div>
-                    <div class="mt-4 flex gap-4">
-                        <button 
-                            hx-get="{% url 'users:edit_account_details' %}" 
-                            hx-target="#account-details-content" 
-                            hx-swap="innerHTML"
-                            class="bg-gray-400 hover:bg-gray-500 text-white font-semibold py-2 px-4 transition-colors duration-200 text-sm tracking-wide"
-                        >
-                            Редактировать
-                        </button>
-                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+        
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+            <!-- Sidebar -->
+            <div class="col-span-1">
+                <div class="bg-white p-6 rounded-lg shadow-lg">
+                    <ul class="space-y-4">
+                        <li class="nav-item">
+                            <a href="{% url 'users:profile' %}" 
+                               hx-get="{% url 'users:profile' %}" 
+                               hx-target="#main-content" 
+                               hx-push-url="true"
+                               class="flex items-center text-gray-700 font-semibold text-sm tracking-wide hover:text-gray-900 {% if request.resolver_match.url_name == 'profile' %}text-gray-900 border-l-4 border-gray-500 pl-2{% endif %}">
+                                ЛИЧНЫЙ КАБИНЕТ
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="{% url 'orders:order_history' %}" 
+                               hx-get="{% url 'orders:order_history' %}"
+                               hx-target="#main-content"
+                               hx-push-url="true"
+                               class="flex items-center text-gray-700 font-semibold text-sm tracking-wide hover:text-gray-900 {% if request.resolver_match.url_name == 'order_history' %}text-gray-900 border-l-4 border-gray-500 pl-2{% endif %}">
+                                ИСТОРИЯ ЗАКАЗОВ
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="{% url 'users:logout' %}" class="block text-gray-700 font-semibold text-sm tracking-wide hover:text-red-600">
+                                ВЫХОД
+                            </a>
+                        </li>
+                    </ul>
                 </div>
             </div>
             
-            <!-- Recommendations -->
-            <div class="mt-8">
-                <h2 class="text-xl font-semibold text-gray-900 mb-4 tracking-wide">
-                    ВАМ ТАКЖЕ МОГУТ ПОНРАВИТЬСЯ
-                </h2>
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    {% for product in recommended_products %}
-                        <div class="bg-white p-4 rounded-lg shadow-lg card">
-                            <div class="mb-4">
-                                {% if product.main_image %}
-                                    <img src="{{ product.main_image.url }}" alt="{{ product.name }}" class="w-full h-48 object-cover rounded">
+            <!-- Main Content -->
+            <div class="col-span-3">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    
+                    <!-- Account Details -->
+                    <div class="bg-white p-6 rounded-lg shadow-lg card" id="account-details-content">
+                        <h2 class="text-xl font-semibold text-gray-900 mb-4 tracking-wide">
+                            АДРЕС ДОСТАВКИ
+                        </h2>
+                        <div class="space-y-2">
+                            <p class="text-sm text-gray-700">Адрес по умолчанию</p>
+                            <p class="text-sm text-gray-700">{{ request.user.first_name }} {{ request.user.last_name }}</p>
+                            <p class="text-sm text-gray-700">{{ request.user.address|default:"Не указан" }}</p>
+                            <p class="text-sm text-gray-700">
+                                {% if request.user.city and request.user.postal_code %}
+                                    {{ request.user.city }}, {{ request.user.postal_code }}
+                                {% elif request.user.city %}
+                                    {{ request.user.city }}
                                 {% else %}
-                                    <img src="{% static 'img/placeholder.jpg' %}" alt="{{ product.name }}" class="w-full h-48 object-cover rounded">
+                                    Город не указан
                                 {% endif %}
-                            </div>
-                            <h3 class="text-sm font-semibold text-gray-900">{{ product.name }}</h3>
-                            <p class="text-sm text-gray-700">₽{{ product.price }}</p>
-                            <a href="{% url 'main:product_detail' product.slug %}" 
-                                hx-get="{% url 'main:product_detail' product.slug %}" 
-                                hx-target="#main-content" 
-                                hx-push-url="true"
-                                class="mt-2 inline-block bg-gray-400 hover:bg-gray-500 text-white font-semibold py-2 px-4 transition-colors duration-200 text-sm tracking-wide">
-                                ВЫБЕРИТЕ ВАРИАНТЫ
-                            </a>
+                            </p>
+                            {% if request.user.phone %}
+                            <p class="text-sm text-gray-700">Тел: {{ request.user.phone }}</p>
+                            {% endif %}
                         </div>
-                    {% empty %}
-                        <p class="text-sm text-gray-700">Рекомендации пока недоступны.</p>
-                    {% endfor %}
+                        <div class="mt-4 flex gap-4">
+                            <button 
+                                hx-get="{% url 'users:edit_account_details' %}" 
+                                hx-target="#account-details-content" 
+                                hx-swap="innerHTML"
+                                class="bg-gray-400 hover:bg-gray-500 text-white font-semibold py-2 px-4 transition-colors duration-200 text-sm tracking-wide"
+                            >
+                                Редактировать
+                            </button>
+                            {# ✅ Кнопка очистки адреса (Вариант Б) #}
+                            <button 
+                                hx-post="{% url 'users:clear_address' %}"
+                                hx-target="#account-details-content"
+                                hx-swap="innerHTML"
+                                hx-confirm="Очистить все данные адреса? Это действие нельзя отменить."
+                                class="border-2 border-gray-300 hover:border-red-400 text-gray-700 hover:text-red-600 font-semibold py-2 px-4 transition-colors duration-200 text-sm tracking-wide"
+                            >
+                                Очистить адрес
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Recommendations -->
+                <div class="mt-8">
+                    <h2 class="text-xl font-semibold text-gray-900 mb-4 tracking-wide">
+                        ВАМ ТАКЖЕ МОГУТ ПОНРАВИТЬСЯ
+                    </h2>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        {% for product in recommended_products %}
+                            <div class="bg-white p-4 rounded-lg shadow-lg card">
+                                <div class="mb-4">
+                                    {% if product.main_image %}
+                                        <img src="{{ product.main_image.url }}" alt="{{ product.name }}" class="w-full h-48 object-cover rounded">
+                                    {% else %}
+                                        <img src="{% static 'img/placeholder.jpg' %}" alt="{{ product.name }}" class="w-full h-48 object-cover rounded">
+                                    {% endif %}
+                                </div>
+                                <h3 class="text-sm font-semibold text-gray-900">{{ product.name }}</h3>
+                                <p class="text-sm text-gray-700">₽{{ product.price }}</p>
+                                <a 
+                                    href="{% url 'main:product_detail' product.slug %}" 
+                                    hx-get="{% url 'main:product_detail' product.slug %}" 
+                                    hx-target="#main-content" 
+                                    hx-push-url="true"
+                                    class="mt-2 inline-block bg-gray-400 hover:bg-gray-500 text-white font-semibold py-2 px-4 transition-colors duration-200 text-sm tracking-wide"
+                                >
+                                    ВЫБЕРИТЕ ВАРИАНТЫ
+                                </a>
+                            </div>
+                        {% empty %}
+                            <p class="text-sm text-gray-700">Рекомендации пока недоступны.</p>
+                        {% endfor %}
+                    </div>
                 </div>
             </div>
         </div>

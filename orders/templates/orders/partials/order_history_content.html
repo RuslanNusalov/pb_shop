@@ -1,55 +1,89 @@
 <div class="mx-auto px-4 sm:px-6 lg:px-8 py-12 max-w-4xl">
-    <h1 class="text-3xl font-bold mb-8 text-center">ИСТОРИЯ ЗАКАЗОВ</h1>
+    <h1 class="text-3xl font-bold mb-8 text-center tracking-wide">ИСТОРИЯ ЗАКАЗОВ</h1>
     
     {% if orders %}
-        <div class="space-y-4">
+        <div class="space-y-6">
             {% for order in orders %}
-            <!-- Внутри цикла {% for order in orders %} -->
-            <div class="space-y-3 mt-4">
-                {% for item in order.items.all %}
-                <div class="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                    <!-- ✅ ФОТО ТОВАРА -->
-                    <div class="w-16 h-16 flex-shrink-0 bg-white rounded-md overflow-hidden border border-gray-200">
-                        {% if item.product_image %}
-                            <img src="{{ item.product_image.url }}" 
-                                alt="{{ item.product_name }}" 
-                                class="w-full h-full object-cover">
-                        {% else %}
-                            <div class="w-full h-full flex items-center justify-center text-gray-300">
-                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                </svg>
-                            </div>
-                        {% endif %}
-                    </div>
-                    
-                    <!-- Название и количество -->
-                    <div class="flex-1 min-w-0">
-                        <p class="text-sm font-medium text-gray-900 truncate">
-                            {{ item.product_name }}
-                        </p>
-                        <p class="text-xs text-gray-500">
-                            × {{ item.quantity }}
+            <!-- ✅ Карточка ОДНОГО заказа -->
+            <div class="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                
+                <!-- Заголовок заказа -->
+                <div class="bg-gray-50 px-6 py-4 border-b border-gray-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                        <a href="{% url 'orders:order_detail' order.id %}"
+                           hx-get="{% url 'orders:order_detail' order.id %}"
+                           hx-target="#main-content"
+                           hx-push-url="true"
+                           class="text-lg font-bold text-gray-900 hover:text-gray-700 hover:underline">
+                            Заказ №{{ order.id }}
+                        </a>
+                        <p class="text-sm text-gray-500 mt-1">
+                            от {{ order.created_at|date:"d.m.Y в H:i" }}
                         </p>
                     </div>
-                    
-                    <!-- Цена -->
-                    <div class="text-sm font-medium text-gray-900">
-                        ₽{{ item.price|multiply:item.quantity }}
+                    <div class="flex items-center gap-3">
+                        <span class="px-3 py-1 text-xs font-medium rounded-full
+                            {% if order.status == 'completed' %}bg-green-100 text-green-800
+                            {% elif order.status == 'processing' %}bg-blue-100 text-blue-800
+                            {% elif order.status == 'pending' %}bg-yellow-100 text-yellow-800
+                            {% elif order.status == 'cancelled' %}bg-red-100 text-red-800
+                            {% else %}bg-gray-100 text-gray-800{% endif %}">
+                            {{ order.get_status_display }}
+                        </span>
+                        <span class="text-base font-bold text-gray-900">₽{{ order.total|floatformat:0 }}</span>
                     </div>
                 </div>
-                {% endfor %}
+
+                <!-- Товары внутри заказа -->
+                <div class="divide-y divide-gray-100">
+                    {% for item in order.items.all %}
+                    <div class="flex items-center gap-4 p-4">
+                        <!-- ✅ Фото с безопасным fallback -->
+                        <div class="w-16 h-16 flex-shrink-0 bg-gray-100 rounded-md overflow-hidden border border-gray-200">
+                            {% if item.product_image %}
+                                <img src="{{ item.product_image.url }}" alt="{{ item.product_name }}" class="w-full h-full object-cover">
+                            {% elif item.product and item.product.main_image %}
+                                <img src="{{ item.product.main_image.url }}" alt="{{ item.product_name }}" class="w-full h-full object-cover">
+                            {% else %}
+                                <div class="w-full h-full flex items-center justify-center text-gray-300">
+                                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                    </svg>
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Информация о товаре -->
+                        <div class="flex-1 min-w-0">
+                            <p class="text-sm font-medium text-gray-900 truncate">{{ item.product_name }}</p>
+                            <p class="text-xs text-gray-500 mt-1">
+                                {% if item.product_size %}Размер: {{ item.product_size }} • {% endif %}
+                                {{ item.quantity }} шт. × ₽{{ item.price|floatformat:0 }}
+                            </p>
+                        </div>
+                        
+                        <!-- Стоимость позиции (лучше брать из модели, а не умножать в шаблоне) -->
+                        <div class="text-sm font-semibold text-gray-900 whitespace-nowrap">
+                            ₽{{ item.total_price|default:item.price|floatformat:0 }}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
             </div>
             {% endfor %}
         </div>
     {% else %}
-        <div class="text-center py-12 bg-white border border-gray-200 rounded-lg">
-            <p class="text-gray-500 text-lg">У вас пока нет заказов</p>
+        <!-- Пустое состояние -->
+        <div class="text-center py-16 bg-white border border-gray-200 rounded-lg shadow-sm">
+            <svg class="mx-auto h-12 w-12 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+            </svg>
+            <p class="mt-4 text-gray-500 text-lg">У вас пока нет заказов</p>
             <a href="{% url 'main:index' %}" 
                hx-get="{% url 'main:index' %}" 
                hx-target="#main-content" 
                hx-push-url="true"
-               class="mt-4 inline-block px-6 py-2 bg-black text-white text-sm font-medium rounded hover:bg-gray-800 transition-colors">
+               class="mt-6 inline-block px-6 py-2.5 bg-black text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors">
                 Перейти в каталог
             </a>
         </div>

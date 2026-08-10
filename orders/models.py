@@ -121,6 +121,6 @@ class OrderItem(models.Model):
         return f"{self.product.name} ({self.product_size}) x {self.quantity}"
 
     @property
-    def total(self):
+    def total_price(self):
         """Стоимость позиции = цена × количество"""
         return self.price * self.quantity

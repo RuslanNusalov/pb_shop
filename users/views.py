@@ -30,7 +30,7 @@ def register(request):
     context = {'form': form}
     if request.headers.get('HX-Request'):
         return TemplateResponse(request, 'users/partials/register_form.html', context)
-    return render(request, 'users/register_page.html', context)
+    return render(request, 'users/register.html', context)
 
 
 def login_view(request):
@@ -50,7 +50,7 @@ def login_view(request):
     context = {'form': form}
     if request.headers.get('HX-Request'):
         return TemplateResponse(request, 'users/partials/login_form.html', context)
-    return render(request, 'users/login_page.html', context)
+    return render(request, 'users/login.html', context)
 
 
 @login_required(login_url=reverse_lazy('users:login'))
@@ -85,7 +85,7 @@ def profile_view(request):
 
     if request.headers.get('HX-Request'):
         return TemplateResponse(request, 'users/partials/profile_content.html', context)
-    return TemplateResponse(request, 'users/profile_page.html', context)
+    return TemplateResponse(request, 'users/profile.html', context)
 
 
 @login_required(login_url=reverse_lazy('users:login'))
@@ -132,3 +132,29 @@ def logout_view(request):
     if request.headers.get('HX-Request'):
         return HttpResponse(headers={'HX-Redirect': reverse('main:index')})
     return redirect('main:index')
+
+
+@login_required(login_url=reverse_lazy('users:login'))
+def clear_address(request):
+    """Очищает поля адреса у текущего пользователя"""
+    if request.method != 'POST':
+        # Если не POST — редирект на профиль
+        if request.headers.get('HX-Request'):
+            return HttpResponse(headers={'HX-Redirect': reverse('users:profile')})
+        return redirect('users:profile')
+    
+    # Очищаем только адресные поля, не трогаем имя/email/телефон
+    user = request.user
+    user.address = ''
+    user.city = ''
+    user.region = ''
+    user.postal_code = ''
+    user.save(update_fields=['address', 'city', 'region', 'postal_code'])
+    
+    messages.success(request, 'Адрес доставки очищен.')
+    
+    if request.headers.get('HX-Request'):
+        # Возвращаем обновлённый блок с адресом
+        return TemplateResponse(request, 'users/partials/account_details.html', {'user': user})
+    
+    return redirect('users:profile')

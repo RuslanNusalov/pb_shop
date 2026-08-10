@@ -1,13 +1,25 @@
+{% load static %}
+{% extends "main/base.html" %}
+
+{% block title %}Профиль | Правый Берег{% endblock %}
+
+{% block content %}
 <div id="main-content" class="min-h-screen p-8 fade-in">
     <div class="max-w-6xl mx-auto">
         <h1 class="text-3xl font-bold text-gray-900 mb-8 text-center tracking-wide">
-            ПРИВЕТ, {{ request.user.first_name|upper }} {{ request.user.last_name|upper }}
+            ПРИВЕТ, {{ request.user.first_name|default:"ПОЛЬЗОВАТЕЛЬ"|upper }} {{ request.user.last_name|upper }}
         </h1>
         
         {% if messages %}
             <div class="mb-4">
                 {% for message in messages %}
-                    <div class="text-red-500 text-sm text-center">{{ message }}</div>
+                    <div class="text-sm text-center 
+                        {% if message.tags == 'error' %}text-red-500
+                        {% elif message.tags == 'success' %}text-green-500
+                        {% elif message.tags == 'warning' %}text-yellow-500
+                        {% else %}text-blue-500{% endif %}">
+                        {{ message }}
+                    </div>
                 {% endfor %}
             </div>
         {% endif %}
@@ -18,7 +30,6 @@
                 <div class="bg-white p-6 rounded-lg shadow-lg">
                     <ul class="space-y-4">
                         <li class="nav-item">
-                            <!-- Цель #main-content, чтобы обновить всю область -->
                             <a href="{% url 'users:profile' %}" 
                                hx-get="{% url 'users:profile' %}" 
                                hx-target="#main-content" 
@@ -28,9 +39,8 @@
                             </a>
                         </li>
                         <li class="nav-item">
-                            <!-- Добавил HTMX для истории заказов, чтобы не перезагружать страницу полностью -->
-                            <a href="{% url 'users:order_history' %}" 
-                               hx-get="{% url 'users:order_history' %}"
+                            <a href="{% url 'orders:order_history' %}" 
+                               hx-get="{% url 'orders:order_history' %}"
                                hx-target="#main-content"
                                hx-push-url="true"
                                class="flex items-center text-gray-700 font-semibold text-sm tracking-wide hover:text-gray-900 {% if request.resolver_match.url_name == 'order_history' %}text-gray-900 border-l-4 border-gray-500 pl-2{% endif %}">
@@ -38,7 +48,6 @@
                             </a>
                         </li>
                         <li class="nav-item">
-                            <!-- Выход обычно лучше делать обычной ссылкой или POST запросом, но оставил как было -->
                             <a href="{% url 'users:logout' %}" class="block text-gray-700 font-semibold text-sm tracking-wide hover:text-red-600">
                                 ВЫХОД
                             </a>
@@ -48,7 +57,6 @@
             </div>
             
             <!-- Main Content -->
-            <!-- Убрал id="profile-main-content", чтобы не путаться с целями -->
             <div class="col-span-3">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     
@@ -60,8 +68,19 @@
                         <div class="space-y-2">
                             <p class="text-sm text-gray-700">Адрес по умолчанию</p>
                             <p class="text-sm text-gray-700">{{ request.user.first_name }} {{ request.user.last_name }}</p>
-                            <p class="text-sm text-gray-700">{{ request.user.address|default:"" }}</p>
-                            <p class="text-sm text-gray-700">{{ request.user.city|default:"" }}</p>
+                            <p class="text-sm text-gray-700">{{ request.user.address|default:"Не указан" }}</p>
+                            <p class="text-sm text-gray-700">
+                                {% if request.user.city and request.user.postal_code %}
+                                    {{ request.user.city }}, {{ request.user.postal_code }}
+                                {% elif request.user.city %}
+                                    {{ request.user.city }}
+                                {% else %}
+                                    Город не указан
+                                {% endif %}
+                            </p>
+                            {% if request.user.phone %}
+                            <p class="text-sm text-gray-700">Тел: {{ request.user.phone }}</p>
+                            {% endif %}
                         </div>
                         <div class="mt-4 flex gap-4">
                             <button 
@@ -72,10 +91,15 @@
                             >
                                 Редактировать
                             </button>
+                            {# ✅ Безопасная кнопка очистки адреса (HTMX) #}
                             <button 
-                                class="border-2 border-gray-300 hover:border-gray-400 text-gray-700 hover:text-gray-900 font-semibold py-2 px-4 transition-colors duration-200 text-sm tracking-wide"
+                                hx-post="{% url 'users:clear_address' %}"
+                                hx-target="#account-details-content"
+                                hx-swap="innerHTML"
+                                hx-confirm="Очистить все данные адреса?"
+                                class="border-2 border-gray-300 hover:border-red-400 text-gray-700 hover:text-red-600 font-semibold py-2 px-4 transition-colors duration-200 text-sm tracking-wide"
                             >
-                                Удалить
+                                Очистить адрес
                             </button>
                         </div>
                     </div>
@@ -117,3 +141,4 @@
         </div>
     </div>
 </div>
+{% endblock %}
