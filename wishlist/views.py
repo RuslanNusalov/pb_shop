@@ -65,13 +65,14 @@ class WishlistListView(TemplateView):
         
         wishlist, _ = Wishlist.objects.get_or_create(user=self.request.user)
         
-        # ✅ ИСПРАВЛЕНО: убран main_image из select_related (это не связь, а поле)
         products = wishlist.products.select_related(
-            'product__category',  # ForeignKey → можно
+            'product',              # ✅ Загружаем сам товар одним запросом
+            'product__category',    # ✅ И его категорию
+            'product__main_image'   # ✅ Django автоматически подтянет ImageField
         ).prefetch_related(
-            'product__images'     # ManyToMany/Reverse FK → можно
-        ).order_by('-wishlisted_by__id')
-        
+            'product__images'
+        ).order_by('-id') 
+
         context['wishlist'] = wishlist
         context['products'] = products
         context['wishlist_count'] = products.count()

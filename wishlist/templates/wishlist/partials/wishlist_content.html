@@ -3,23 +3,24 @@
 
     {% if products %}
         <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
-            {% for product in products %}
+            {% for item in products %}
+            {# ✅ item = ProductSize, prod = сам Товар #}
+            {% with prod=item.product %}
             <div class="group relative bg-white rounded-xl border border-gray-100 overflow-hidden hover:shadow-md transition-all">
                 <div class="absolute top-3 right-3 z-10">
-                    {% include 'wishlist/partials/toggle_btn.html' with product=product is_in_wishlist=True %}
+                    {% include 'wishlist/partials/toggle_btn.html' with product=prod is_in_wishlist=True %}
                 </div>
 
-                <!-- ✅ ЗАЩИТА 1: Проверяем, что slug не пустой, перед генерацией ссылки -->
-                {% if product.slug %}
-                <a href="{% url 'main:product_detail' product.slug %}" 
-                   hx-get="{% url 'main:product_detail' product.slug %}" 
+                {% if prod.slug %}
+                <a href="{% url 'main:product_detail' prod.slug %}" 
+                   hx-get="{% url 'main:product_detail' prod.slug %}" 
                    hx-target="#main-content" 
                    hx-push-url="true"
                    class="block aspect-square overflow-hidden bg-gray-50">
                     
-                    <!-- ✅ ЗАЩИТА 2: Проверяем, есть ли картинка -->
-                    {% if product.main_image %}
-                        <img src="{{ product.main_image.url }}" alt="{{ product.name }}" loading="eager"
+                    {# ✅ ИСПРАВЛЕНО: обращаемся к prod.main_image, а не item.main_image #}
+                    {% if prod.main_image %}
+                        <img src="{{ prod.main_image.url }}" alt="{{ prod.name }}"
                              class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
                     {% else %}
                         <div class="w-full h-full bg-gray-200 flex items-center justify-center">
@@ -31,13 +32,17 @@
                 {% endif %}
 
                 <div class="p-4">
-                    <h3 class="text-sm font-medium text-gray-900 truncate">{{ product.name|upper }}</h3>
-                    <p class="text-xs text-gray-500 mt-1">{{ product.color|default:"Универсальный" }}</p>
+                    <h3 class="text-sm font-medium text-gray-900 truncate">{{ prod.name|upper }}</h3>
+                    <p class="text-xs text-gray-500 mt-1">
+                        Размер: {{ item.size.name|default:item.size }} {% if prod.color %}/ {{ prod.color }}{% endif %}
+                    </p>
                     <div class="mt-3 flex items-center justify-between">
-                        <span class="text-base font-bold text-gray-900">₽{{ product.price }}</span>
+                        {# Цена обычно берётся из товара, но если у размера своя цена → оставь item.price #}
+                        <span class="text-base font-bold text-gray-900">₽{{ prod.price|default:item.price }}</span>
                     </div>
                 </div>
             </div>
+            {% endwith %}
             {% endfor %}
         </div>
     {% else %}
