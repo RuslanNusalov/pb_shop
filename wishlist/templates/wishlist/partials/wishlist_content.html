@@ -18,7 +18,7 @@
                 hx-push-url="true"
                 class="block aspect-square overflow-hidden bg-gray-50">
                     
-                    {# ✅ Доступ к main_image через prod (Product), а не item (ProductSize) #}
+                    {# ✅ Доступ к main_image через prod (Product) #}
                     {% if prod.main_image %}
                         <img src="{{ prod.main_image.url }}" alt="{{ prod.name }}"
                             class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
@@ -37,7 +37,8 @@
                         Размер: {{ item.size.name|default:item.size }} {% if prod.color %}/ {{ prod.color }}{% endif %}
                     </p>
                     <div class="mt-3 flex items-center justify-between">
-                        <span class="text-base font-bold text-gray-900">₽{{ prod.price|default:item.price }}</span>
+                        {# ✅ ИСПРАВЛЕНО: price берём из prod (Product), а не из item (ProductSize) #}
+                        <span class="text-base font-bold text-gray-900">₽{{ prod.price|floatformat:0 }}</span>
                     </div>
                 </div>
             </div>
