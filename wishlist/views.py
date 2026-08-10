@@ -55,7 +55,7 @@ class ToggleWishlistView(View):
 
 
 # 2️⃣ LIST VIEW (Страница "Избранное")
-@method_decorator(login_required, name='dispatch')  # ✅ Защита от анонимов
+@method_decorator(login_required, name='dispatch')  # ✅ КРИТИЧНО ВАЖНО: защита от анонимов
 class WishlistListView(TemplateView):
     template_name = 'wishlist/wishlist_list.html'
     partial_template_name = 'wishlist/partials/wishlist_content.html'
@@ -63,18 +63,15 @@ class WishlistListView(TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         
-        # Безопасно, так как dispatch защищён login_required
         wishlist, _ = Wishlist.objects.get_or_create(user=self.request.user)
         
-        # ✅ ИСПРАВЛЕНА ОПТИМИЗАЦИЯ:
-        # 1. Убран лишний 'product' в select_related (менеджер уже возвращает Products)
-        # 2. Добавлены реальные поля Product для ускорения рендеринга
+        # ✅ ИСПРАВЛЕННЫЙ ЗАПРОС:
         products = wishlist.products.select_related(
-            'category',          # Категория товара
-            'main_image'         # Главное изображение
+            'product__category',  # Если это ProductSize → идём к товару, потом к категории
+            'product__main_image'
         ).prefetch_related(
-            'images'             # Дополнительные фото (если есть в модели)
-        ).order_by('-wishlistitem__created_at')  # ⚠️ Замени wishlistitem на название твоей through-модели, если другое
+            'product__images'
+        ).order_by('-wishlisted_by__id')  # ✅ Исправлено: wishlisted_by вместо wishlistitem
         
         context['wishlist'] = wishlist
         context['products'] = products
@@ -83,14 +80,10 @@ class WishlistListView(TemplateView):
         return context
 
     def get(self, request, *args, **kwargs):
-        # ✅ КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ: контекст формируется СТРОГО ОДИН РАЗ
         context = self.get_context_data(**kwargs)
         
         if request.headers.get('HX-Request'):
-            # HTMX-запрос → отдаём только контент (без хедера/футера)
             return render(request, self.partial_template_name, context)
-        
-        # Обычный GET → рендерим полную страницу
         return render(request, self.template_name, context)
 
 
