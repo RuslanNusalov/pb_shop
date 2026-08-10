@@ -3,67 +3,66 @@ from django.utils.html import strip_tags
 
 INPUT_CLASS = 'w-full px-4 py-3 border border-black rounded-none text-black placeholder-gray-500 focus:outline-none focus:border-black'
 
-
 class OrderForm(forms.Form):
     first_name = forms.CharField(
         max_length=50,
         widget=forms.TextInput(attrs={
             'class': INPUT_CLASS,
-            'placeholder': 'Имя'
+            'placeholder': 'Имя *'
         })
     )
     last_name = forms.CharField(
         max_length=50,
         widget=forms.TextInput(attrs={
             'class': INPUT_CLASS,
-            'placeholder': 'Фамилия'
+            'placeholder': 'Фамилия *'
         })
     )
     email = forms.EmailField(
         widget=forms.EmailInput(attrs={
             'class': INPUT_CLASS,
-            'placeholder': 'Эл. почта',
+            'placeholder': 'Эл. почта *',
             'readonly': 'readonly'
         })
     )
     address = forms.CharField(
         max_length=255,
-        required=False,
+        # ✅ required=False удалён → поле стало обязательным
         widget=forms.TextInput(attrs={
             'class': f'{INPUT_CLASS} pr-10',
-            'placeholder': 'Адрес'
+            'placeholder': 'Адрес *'
         })
     )
     city = forms.CharField(
         max_length=100,
-        required=False,
+        # ✅ required=False удалён
         widget=forms.TextInput(attrs={
             'class': INPUT_CLASS,
-            'placeholder': 'Город'
+            'placeholder': 'Город *'
         })
     )
     region = forms.CharField(
         max_length=100,
-        required=False,
+        # ✅ required=False удалён
         widget=forms.TextInput(attrs={
             'class': INPUT_CLASS,
-            'placeholder': 'Регион'
+            'placeholder': 'Регион *'
         })
     )
     postal_code = forms.CharField(
         max_length=20,
-        required=False,
+        # ✅ required=False удалён
         widget=forms.TextInput(attrs={
             'class': INPUT_CLASS,
-            'placeholder': 'Индекс'
+            'placeholder': 'Индекс *'
         })
     )
     phone = forms.CharField(
         max_length=15,
-        required=False,
+        # ✅ required=False удалён
         widget=forms.TextInput(attrs={
             'class': f'{INPUT_CLASS} pr-10',
-            'placeholder': 'Телефон'
+            'placeholder': 'Телефон *'
         })
     )
     special_instructions = forms.CharField(
