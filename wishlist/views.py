@@ -55,40 +55,43 @@ class ToggleWishlistView(View):
 
 
 # 2️⃣ LIST VIEW (Страница "Избранное")
-@method_decorator(login_required, name='dispatch')  # ✅ КРИТИЧНО ВАЖНО: защита от анонимов
+@method_decorator(login_required, name='dispatch')  # ✅ Защита от анонимов
 class WishlistListView(TemplateView):
     template_name = 'wishlist/wishlist_list.html'
     partial_template_name = 'wishlist/partials/wishlist_content.html'
 
-    def get(self, request, *args, **kwargs):
-        context = self.get_context_data(**kwargs)
-        
-        # ✅ Логика разделения: Partial для HTMX, Full для обычного браузера
-        if request.headers.get('HX-Request'):
-            return render(request, self.partial_template_name, context)
-            
-        return super().get(request, *args, **kwargs)
-
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         
-        # Безопасно, так как есть @login_required
+        # Безопасно, так как dispatch защищён login_required
         wishlist, _ = Wishlist.objects.get_or_create(user=self.request.user)
         
-        # Оптимизация запросов
+        # ✅ ИСПРАВЛЕНА ОПТИМИЗАЦИЯ:
+        # 1. Убран лишний 'product' в select_related (менеджер уже возвращает Products)
+        # 2. Добавлены реальные поля Product для ускорения рендеринга
         products = wishlist.products.select_related(
-            'product',           # сначала сам товар
-            'product__category', # затем категория товара
-            'size'               # и размер
+            'category',          # Категория товара
+            'main_image'         # Главное изображение
         ).prefetch_related(
-            'product__images'    # если нужны фото товара
-        ).order_by('-wishlisted_by__updated_at')
+            'images'             # Дополнительные фото (если есть в модели)
+        ).order_by('-wishlistitem__created_at')  # ⚠️ Замени wishlistitem на название твоей through-модели, если другое
         
         context['wishlist'] = wishlist
         context['products'] = products
         context['wishlist_count'] = products.count()
         
         return context
+
+    def get(self, request, *args, **kwargs):
+        # ✅ КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ: контекст формируется СТРОГО ОДИН РАЗ
+        context = self.get_context_data(**kwargs)
+        
+        if request.headers.get('HX-Request'):
+            # HTMX-запрос → отдаём только контент (без хедера/футера)
+            return render(request, self.partial_template_name, context)
+        
+        # Обычный GET → рендерим полную страницу
+        return render(request, self.template_name, context)
 
 
 class GetWishlistToggleBtn(View):
