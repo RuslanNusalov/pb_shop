@@ -65,13 +65,12 @@ class WishlistListView(TemplateView):
         
         wishlist, _ = Wishlist.objects.get_or_create(user=self.request.user)
         
-        # ✅ ИСПРАВЛЕННЫЙ ЗАПРОС:
+        # ✅ ИСПРАВЛЕНО: убран main_image из select_related (это не связь, а поле)
         products = wishlist.products.select_related(
-            'product__category',  # Если это ProductSize → идём к товару, потом к категории
-            'product__main_image'
+            'product__category',  # ForeignKey → можно
         ).prefetch_related(
-            'product__images'
-        ).order_by('-wishlisted_by__id')  # ✅ Исправлено: wishlisted_by вместо wishlistitem
+            'product__images'     # ManyToMany/Reverse FK → можно
+        ).order_by('-wishlisted_by__id')
         
         context['wishlist'] = wishlist
         context['products'] = products
