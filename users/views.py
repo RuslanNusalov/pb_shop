@@ -1,4 +1,3 @@
-# users/views.py
 from django.contrib import messages
 from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
@@ -31,7 +30,7 @@ def register(request):
     context = {'form': form}
     if request.headers.get('HX-Request'):
         return TemplateResponse(request, 'users/partials/register_form.html', context)
-    return render(request, 'users/register_page.html', context)
+    return render(request, 'users/register.html', context)
 
 
 def login_view(request):
@@ -51,7 +50,7 @@ def login_view(request):
     context = {'form': form}
     if request.headers.get('HX-Request'):
         return TemplateResponse(request, 'users/partials/login_form.html', context)
-    return render(request, 'users/login_page.html', context)
+    return render(request, 'users/login.html', context)
 
 
 @login_required(login_url=reverse_lazy('users:login'))
@@ -86,7 +85,7 @@ def profile_view(request):
 
     if request.headers.get('HX-Request'):
         return TemplateResponse(request, 'users/partials/profile_content.html', context)
-    return TemplateResponse(request, 'users/profile_page.html', context)
+    return TemplateResponse(request, 'users/profile.html', context)
 
 
 @login_required(login_url=reverse_lazy('users:login'))
