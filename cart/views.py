@@ -58,6 +58,7 @@ class CartModalView(CartMixin, View):
 
 class AddToCartView(CartMixin, View):
     http_method_names = ['post']
+    
     @transaction.atomic
     def post(self, request, slug):
         cart = self.get_cart(request)
@@ -69,8 +70,9 @@ class AddToCartView(CartMixin, View):
         
         size_id = form.cleaned_data.get('size_id')
         if size_id:
+            #  Блокируем строку размера на время транзакции (защита от race condition)
             try:
-                product_size = ProductSize.objects.get(id=size_id, product=product)
+                product_size = ProductSize.objects.select_for_update().get(id=size_id, product=product)
             except ProductSize.DoesNotExist:
                 return self._htmx_error(request, "Выбранный размер не найден")
         else:
@@ -83,19 +85,25 @@ class AddToCartView(CartMixin, View):
             return self._htmx_error(request, f"Доступно только {product_size.stock} шт.")
 
         existing_item = cart.items.filter(product=product, product_size=product_size).first()
+        
         if existing_item:
+            # ✅ Обновляем существующую позицию, а не создаём дубль
             if existing_item.quantity + quantity > product_size.stock:
                 remaining = product_size.stock - existing_item.quantity
                 return self._htmx_error(request, f"Можно добавить ещё {remaining} шт.")
-            
-        cart_item = cart.add_product(product, product_size, quantity)
+            existing_item.quantity += quantity
+            existing_item.save()
+            cart_item = existing_item
+        else:
+            # Создаём новую позицию (убедись, что cart.add_product не дублирует existing_item)
+            cart_item = cart.add_product(product, product_size, quantity)
 
         if request.headers.get('HX-Request'):
-            # ✅ Возвращаем HTML модалки + триггер успешного действия
             response = self.render_cart_modal(request, cart)
+            # ✅ Отправляем 'count' вместо 'total', чтобы фронтенд корректно обновлял шапку
             response['HX-Trigger'] = json.dumps({
                 "showToast": {"message": f"{product.name} добавлен в корзину", "type": "success"},
-                "cartUpdated": {"total": cart.total_items}
+                "cartUpdated": {"count": cart.total_items}
             })
             return response
         else:
@@ -109,6 +117,7 @@ class AddToCartView(CartMixin, View):
 
 class UpdateCartItemView(CartMixin, View):
     http_method_names = ['post']
+    
     @transaction.atomic
     def post(self, request, item_id):
         cart = self.get_cart(request)
@@ -125,8 +134,10 @@ class UpdateCartItemView(CartMixin, View):
         if quantity == 0:
             cart_item.delete()
         else:
-            if quantity > cart_item.product_size.stock:
-                return self._htmx_error(request, f"Доступно только {cart_item.product_size.stock} шт.")
+            # 🔒 Блокируем размер для проверки стока
+            size = ProductSize.objects.select_for_update().get(id=cart_item.product_size_id)
+            if quantity > size.stock:
+                return self._htmx_error(request, f"Доступно только {size.stock} шт.")
             
             cart_item.quantity = quantity
             cart_item.save()
@@ -152,7 +163,7 @@ class CartCountView(CartMixin, View):
     def get(self, request):
         cart = self.get_cart(request)
         return JsonResponse({
-            'total_items': cart.total_items,
+            'count': cart.total_items,  # ✅ Привели ключ к 'count' для единообразия
             'subtotal': float(cart.subtotal)
         })
     
@@ -172,7 +183,7 @@ class CartSummaryView(CartMixin, View):
     http_method_names = ['get']
     def get(self, request):
         cart = self.get_cart(request)
-        return self.render_cart_modal(request, cart)  # Переиспользуем существующий метод
+        return self.render_cart_modal(request, cart)
     
 
 class ApplyPromoCodeView(CartMixin, View):
@@ -202,11 +213,12 @@ class ApplyPromoCodeView(CartMixin, View):
                 'cart': cart, 'message': msg, 'status': status
             })
             response['HX-Trigger'] = json.dumps({
-                "cartUpdated": {"total": float(cart.total), "discount": float(cart.promo_discount)}
+                "cartUpdated": {"count": cart.total_items, "discount": float(cart.promo_discount)}
             })
             return response
         
         return JsonResponse({"status": status, "message": msg})
+
 
 class RemovePromoCodeView(CartMixin, View):
     def post(self, request):
@@ -218,7 +230,7 @@ class RemovePromoCodeView(CartMixin, View):
                 'cart': cart, 'message': 'Промокод удалён', 'status': 'info'
             })
             response['HX-Trigger'] = json.dumps({
-                "cartUpdated": {"total": float(cart.total), "discount": 0}
+                "cartUpdated": {"count": cart.total_items, "discount": 0}
             })
             return response
         
