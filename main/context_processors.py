@@ -1,6 +1,4 @@
-from django.core.cache import cache
-
-from main.models import Category, Wishlist
+from main.models import Category
 
 
 def global_wishlist_count(request):
@@ -8,30 +6,22 @@ def global_wishlist_count(request):
     count = 0
     
     if request.user.is_authenticated:
+        # ВАРИАНТ 1: Если у тебя связь ManyToMany напрямую в User
+        # count = request.user.wishlist.count() 
+        
+        # ВАРИАНТ 2: Если есть отдельная модель Wishlist (как у тебя скорее всего)
         try:
-            wishlist = request.user.wishlist
+            # Замени 'wishlist' на название твоего приложения, если другое
+            # И 'products' на название поля связи
+            wishlist = request.user.wishlist 
             count = wishlist.products.count()
-        except (AttributeError, Wishlist.DoesNotExist):
-            count = 0
-        except Exception:
+        except:
             count = 0
             
     return {'wishlist_count': count}
 
 
 def global_categories(request):
-    """Возвращает активные категории с кэшированием"""
-    
-    # Пробуем получить из кэша
-    categories = cache.get('global_categories')
-    
-    if categories is None:
-        # ✅ Используем фильтр is_active=True (поле уже есть в БД)
-        categories = list(Category.objects.filter(
-            is_active=True
-        ).values('id', 'name', 'slug').order_by('name'))
-        
-        # Кэшируем на 1 час
-        cache.set('global_categories', categories, 3600)
-    
-    return {'categories': categories}
+    return {
+        'categories': Category.objects.filter(is_active=True),
+    }
