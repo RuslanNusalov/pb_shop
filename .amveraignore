@@ -22,10 +22,6 @@ venv/
 .env.local
 .env.*.local
 
-# Media & Static (монтируются как volumes)
-media/
-static/
-
 # DB
 *.db
 *.sqlite3
