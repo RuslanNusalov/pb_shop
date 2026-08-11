@@ -16,8 +16,12 @@ done
 echo "🚀 Запуск миграций..."
 python manage.py migrate --noinput
 
+echo "📂 ПРОВЕРКА ИСХОДНОЙ СТАТИКИ:"
+ls -la /app/static/
+ls -la /app/static/img/ || echo "️ Папка img не найдена!"
+
 echo "📦 Сборка статики..."
-python manage.py collectstatic --noinput --clear
+python manage.py collectstatic --noinput --clear --verbosity 2
 
 echo "🔥 Запуск Gunicorn..."
 exec gunicorn pb_shop.wsgi:application \
