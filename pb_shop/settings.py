@@ -170,28 +170,38 @@ CSRF_TRUSTED_ORIGINS = [
 #     SESSION_COOKIE_SAMESITE = 'Lax'
 
 
-# 🛠️ DEBUG ERROR HANDLING (для диагностики)
+# 🕵️‍♂️ ТОЧНАЯ ДИАГНОСТИКА STATICFILES
 if not DEBUG:
-    # Показываем ошибки даже в продакшене (УДАЛИ ПОСЛЕ НАСТРОЙКИ!)
     import sys
-    import traceback
+    from pathlib import Path
     
+    print("\n🔍 STATICFILES DEEP CHECK:", file=sys.stderr)
+    
+    # 1. Что в STATIC_ROOT?
+    if STATIC_ROOT.exists():
+        files = list(STATIC_ROOT.rglob('*'))[:20]  # Первые 20 файлов
+        print(f"   Files in STATIC_ROOT ({len(files)} shown):", file=sys.stderr)
+        for f in files:
+            print(f"     • {f.relative_to(STATIC_ROOT)}", file=sys.stderr)
+        if not files:
+            print("   ⚠️ STATIC_ROOT IS EMPTY! collectstatic didn't copy files.", file=sys.stderr)
+    else:
+        print("   ❌ STATIC_ROOT does not exist!", file=sys.stderr)
+    
+    # 2. Проверка WhiteNoise
     try:
-        # Проверяем критичные настройки
-        assert SECRET_KEY and len(SECRET_KEY) > 20, "SECRET_KEY too weak"
-        assert ALLOWED_HOSTS, "ALLOWED_HOSTS is empty"
-        assert 'spbpb.ru' in ALLOWED_HOSTS or '*' in ALLOWED_HOSTS, "Domain not in ALLOWED_HOSTS"
-        
-        print("✅ Settings validation passed", file=sys.stderr)
-    except AssertionError as e:
-        print(f"❌ Settings error: {e}", file=sys.stderr)
-        print(f"   SECRET_KEY: {'SET' if SECRET_KEY else 'MISSING'}", file=sys.stderr)
-        print(f"   ALLOWED_HOSTS: {ALLOWED_HOSTS}", file=sys.stderr)
-        raise
-    print(" WHITE NOISE CHECK:", file=sys.stderr)
-    print(f"   STATIC_ROOT: {STATIC_ROOT}", file=sys.stderr)
-    print(f"   Exists: {STATIC_ROOT.exists()}", file=sys.stderr)
+        import whitenoise
+        print(f"   ✅ WhiteNoise {whitenoise.__version__} is installed", file=sys.stderr)
+    except ImportError:
+        print("   ❌ WhiteNoise NOT INSTALLED! Run: pip install whitenoise", file=sys.stderr)
     
-    if not STATIC_ROOT.exists():
-        print("   CREATING staticfiles directory...", file=sys.stderr)
-        STATIC_ROOT.mkdir(parents=True, exist_ok=True)
+    # 3. Проверка прав доступа
+    try:
+        test_file = STATIC_ROOT / '.write_test'
+        test_file.touch()
+        test_file.unlink()
+        print("   ✅ Write permissions OK", file=sys.stderr)
+    except PermissionError:
+        print("   ❌ NO WRITE PERMISSIONS for STATIC_ROOT!", file=sys.stderr)
+    
+    print("\n", file=sys.stderr)
