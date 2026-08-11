@@ -6,6 +6,8 @@ class Category(models.Model):
     name = models.CharField(max_length=120)
     slug = models.SlugField(max_length=120, unique=True)
 
+    is_active = models.BooleanField(default=True, help_text="Скрыть категорию с сайта")
+
     def save(self, *args, **kwargs):
         if not self.slug:
             self.slug = slugify(self.name)
