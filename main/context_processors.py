@@ -1,6 +1,7 @@
 from django.core.cache import cache
 
-from main.models import Category, Wishlist
+from main.models import Category
+from wishlist.models import Wishlist
 
 
 def global_wishlist_count(request):
