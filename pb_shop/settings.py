@@ -150,7 +150,7 @@ CSRF_TRUSTED_ORIGINS = [
 
 # ⚡ Продакшен-настройки (только если DEBUG=False)
 if not DEBUG:
-    # ✅ Новый формат для Django 4.2+
+    # ✅ Явно указываем WhiteNoise, что раздавать
     STORAGES = {
         "default": {
             "BACKEND": "django.core.files.storage.FileSystemStorage",
@@ -159,6 +159,11 @@ if not DEBUG:
             "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
         },
     }
+    
+    # ✅ Добавляем папку staticfiles в ALLOWED_HOSTS для WhiteNoise
+    WHITENOISE_USE_FINDERS = False  # Не искать файлы в STATICFILES_DIRS, только в STATIC_ROOT
+    WHITENOISE_MANIFEST_STRICT = False  # Не падать, если manifest.json не найден
+    
     CSRF_COOKIE_SECURE = True
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SAMESITE = 'Lax'
