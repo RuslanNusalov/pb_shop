@@ -148,60 +148,50 @@ CSRF_TRUSTED_ORIGINS = [
     'https://*.amvera.cloud',
 ]
 
+
 # ⚡ Продакшен-настройки (только если DEBUG=False)
-# if not DEBUG:
-#     # ✅ Явно указываем WhiteNoise, что раздавать
-#     STORAGES = {
-#         "default": {
-#             "BACKEND": "django.core.files.storage.FileSystemStorage",
-#         },
-#         "staticfiles": {
-#             "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
-#         },
-#     }
+if not DEBUG:
+    STORAGES = {
+        "default": {
+            "BACKEND": "django.core.files.storage.FileSystemStorage",
+        },
+        "staticfiles": {
+            # ✅ БЕЗ MANIFEST (надежнее, не падает при ошибках collectstatic)
+            "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
+        },
+    }
     
-#     # ✅ Добавляем папку staticfiles в ALLOWED_HOSTS для WhiteNoise
-#     WHITENOISE_USE_FINDERS = False  # Не искать файлы в STATICFILES_DIRS, только в STATIC_ROOT
-#     WHITENOISE_MANIFEST_STRICT = False  # Не падать, если manifest.json не найден
+    # Не строгий режим
+    WHITENOISE_MANIFEST_STRICT = False 
     
-#     CSRF_COOKIE_SECURE = True
-#     SESSION_COOKIE_SECURE = True
-#     CSRF_COOKIE_SAMESITE = 'Lax'
-#     SESSION_COOKIE_SAMESITE = 'Lax'
+    # ️ Включи эти настройки ПОЗЖЕ, когда убедимся, что сайт работает:
+    # CSRF_COOKIE_SECURE = True
+    # SESSION_COOKIE_SECURE = True
+    # CSRF_COOKIE_SAMESITE = 'Lax'
+    # SESSION_COOKIE_SAMESITE = 'Lax'
 
-
-# 🕵️‍♂️ ТОЧНАЯ ДИАГНОСТИКА STATICFILES
+# ️‍♂️ ТОЧНАЯ ДИАГНОСТИКА STATICFILES (БЕЗОПАСНАЯ ВЕРСИЯ)
 if not DEBUG:
     import sys
     from pathlib import Path
     
     print("\n🔍 STATICFILES DEEP CHECK:", file=sys.stderr)
     
-    # 1. Что в STATIC_ROOT?
+    # 1. Проверка папки staticfiles
     if STATIC_ROOT.exists():
-        files = list(STATIC_ROOT.rglob('*'))[:20]  # Первые 20 файлов
-        print(f"   Files in STATIC_ROOT ({len(files)} shown):", file=sys.stderr)
+        files = list(STATIC_ROOT.rglob('*'))[:20]
+        print(f"   ✅ Files in STATIC_ROOT ({len(files)} found):", file=sys.stderr)
         for f in files:
             print(f"     • {f.relative_to(STATIC_ROOT)}", file=sys.stderr)
-        if not files:
-            print("   ⚠️ STATIC_ROOT IS EMPTY! collectstatic didn't copy files.", file=sys.stderr)
     else:
-        print("   ❌ STATIC_ROOT does not exist!", file=sys.stderr)
+        # Это нормально, если collectstatic ещё не отработал!
+        print("   ⚠️ STATIC_ROOT does not exist yet (will be created by collectstatic)", file=sys.stderr)
     
-    # 2. Проверка WhiteNoise
+    # 2. Проверка WhiteNoise (исправленная)
     try:
         import whitenoise
-        print(f"   ✅ WhiteNoise {whitenoise.__version__} is installed", file=sys.stderr)
+        print(f"   ✅ WhiteNoise is installed and ready", file=sys.stderr)
     except ImportError:
-        print("   ❌ WhiteNoise NOT INSTALLED! Run: pip install whitenoise", file=sys.stderr)
-    
-    # 3. Проверка прав доступа
-    try:
-        test_file = STATIC_ROOT / '.write_test'
-        test_file.touch()
-        test_file.unlink()
-        print("   ✅ Write permissions OK", file=sys.stderr)
-    except PermissionError:
-        print("   ❌ NO WRITE PERMISSIONS for STATIC_ROOT!", file=sys.stderr)
+        print("   ❌ WhiteNoise NOT INSTALLED!", file=sys.stderr)
     
     print("\n", file=sys.stderr)
