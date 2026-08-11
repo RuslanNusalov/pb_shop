@@ -13,6 +13,15 @@ load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# 🕵️‍♂️ ДИАГНОСТИКА: Выводим реальную структуру корня проекта в логи
+_app_root = Path('/app')
+print(f"📂 РЕАЛЬНОЕ СОДЕРЖИМОЕ /app:", file=sys.stderr)
+try:
+    for item in sorted(_app_root.iterdir()):
+        print(f"  • {item.name} {'[ПАПКА]' if item.is_dir() else '[ФАЙЛ]'}", file=sys.stderr)
+except PermissionError:
+    print("  ⚠️ Нет прав на чтение /app", file=sys.stderr)
+
 # 🔐 Безопасность
 SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-change-me')
 if not SECRET_KEY:
