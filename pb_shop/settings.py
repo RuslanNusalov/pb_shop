@@ -149,22 +149,42 @@ CSRF_TRUSTED_ORIGINS = [
 ]
 
 # ⚡ Продакшен-настройки (только если DEBUG=False)
+# if not DEBUG:
+#     # ✅ Явно указываем WhiteNoise, что раздавать
+#     STORAGES = {
+#         "default": {
+#             "BACKEND": "django.core.files.storage.FileSystemStorage",
+#         },
+#         "staticfiles": {
+#             "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+#         },
+#     }
+    
+#     # ✅ Добавляем папку staticfiles в ALLOWED_HOSTS для WhiteNoise
+#     WHITENOISE_USE_FINDERS = False  # Не искать файлы в STATICFILES_DIRS, только в STATIC_ROOT
+#     WHITENOISE_MANIFEST_STRICT = False  # Не падать, если manifest.json не найден
+    
+#     CSRF_COOKIE_SECURE = True
+#     SESSION_COOKIE_SECURE = True
+#     CSRF_COOKIE_SAMESITE = 'Lax'
+#     SESSION_COOKIE_SAMESITE = 'Lax'
+
+
+# 🛠️ DEBUG ERROR HANDLING (для диагностики)
 if not DEBUG:
-    # ✅ Явно указываем WhiteNoise, что раздавать
-    STORAGES = {
-        "default": {
-            "BACKEND": "django.core.files.storage.FileSystemStorage",
-        },
-        "staticfiles": {
-            "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
-        },
-    }
+    # Показываем ошибки даже в продакшене (УДАЛИ ПОСЛЕ НАСТРОЙКИ!)
+    import sys
+    import traceback
     
-    # ✅ Добавляем папку staticfiles в ALLOWED_HOSTS для WhiteNoise
-    WHITENOISE_USE_FINDERS = False  # Не искать файлы в STATICFILES_DIRS, только в STATIC_ROOT
-    WHITENOISE_MANIFEST_STRICT = False  # Не падать, если manifest.json не найден
-    
-    CSRF_COOKIE_SECURE = True
-    SESSION_COOKIE_SECURE = True
-    CSRF_COOKIE_SAMESITE = 'Lax'
-    SESSION_COOKIE_SAMESITE = 'Lax'
+    try:
+        # Проверяем критичные настройки
+        assert SECRET_KEY and len(SECRET_KEY) > 20, "SECRET_KEY too weak"
+        assert ALLOWED_HOSTS, "ALLOWED_HOSTS is empty"
+        assert 'spbpb.ru' in ALLOWED_HOSTS or '*' in ALLOWED_HOSTS, "Domain not in ALLOWED_HOSTS"
+        
+        print("✅ Settings validation passed", file=sys.stderr)
+    except AssertionError as e:
+        print(f"❌ Settings error: {e}", file=sys.stderr)
+        print(f"   SECRET_KEY: {'SET' if SECRET_KEY else 'MISSING'}", file=sys.stderr)
+        print(f"   ALLOWED_HOSTS: {ALLOWED_HOSTS}", file=sys.stderr)
+        raise
