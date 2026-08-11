@@ -118,10 +118,23 @@ DATETIME_FORMAT = 'd.m.Y H:i'
 STATIC_URL = '/static/'
 #  ПАПКУ ДЛЯ СОБРАННОЙ СТАТИКИ (должна отличаться от исходной!)
 STATIC_ROOT = BASE_DIR / 'staticfiles'
-#  ПАПКИ С ИСХОДНОЙ СТАТИКОЙ (откуда Django будет брать файлы)
-STATICFILES_DIRS = [
-    BASE_DIR / 'static',  # Твоя папка static/img/favicon.ico и т.д.
+
+# 🔍 АВТО-ПОИСК ПАПКИ STATIC
+_possible_paths = [
+    BASE_DIR / 'static',                # /app/static/
+    BASE_DIR / 'pb_shop' / 'static',    # /app/pb_shop/static/
+    BASE_DIR / 'main' / 'static',       # /app/main/static/
 ]
+
+STATICFILES_DIRS = [p for p in _possible_paths if p.exists()]
+
+# Выводим в логи, что нашли (поможет понять структуру на сервере)
+print(f" STATIC SEARCH: BASE_DIR={BASE_DIR}", file=sys.stderr)
+print(f"   Checked: {_possible_paths}", file=sys.stderr)
+print(f"   ✅ Found & Using: {STATICFILES_DIRS}", file=sys.stderr)
+
+if not STATICFILES_DIRS:
+    print("️ WARNING: Static folder not found! Check repo structure.", file=sys.stderr)
 
 # Стандартные сборщики
 STATICFILES_FINDERS = [
@@ -156,18 +169,3 @@ if not DEBUG:
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SAMESITE = 'Lax'
     SESSION_COOKIE_SAMESITE = 'Lax'
-
-
-
-
-
-# 🛠️ DEBUG: Проверка путей статики (удали после настройки)
-if DEBUG:
-    print(f"\n🔍 DEBUG STATIC:", file=sys.stderr)
-    print(f"BASE_DIR: {BASE_DIR}", file=sys.stderr)
-    print(f"STATIC_ROOT: {STATIC_ROOT}", file=sys.stderr)
-    print(f"STATICFILES_DIRS: {STATICFILES_DIRS}", file=sys.stderr)
-    for path in STATICFILES_DIRS:
-        exists = Path(path).exists() if isinstance(path, (str, Path)) else False
-        print(f"  → {path} exists: {exists}", file=sys.stderr)
-    print("\n", file=sys.stderr)
