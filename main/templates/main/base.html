@@ -9,6 +9,24 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" />
+    <!-- ========================================== -->
+    <!-- ✅ ИКОНКИ (FAVICON & PWA)                 -->
+    <!-- ========================================== -->
+    
+    <!-- Основной фавикон для всех браузеров (Windows/legacy) -->
+    <link rel="icon" href="{% static 'img/favicon.ico' %}" sizes="48x48" />
+
+    <!-- Векторная иконка для современных браузеров (Chrome/Safari) -->
+    <link rel="icon" href="{% static 'img/favicon.svg' %}" type="image/svg+xml" />
+
+    <!-- Иконка для Android / Chrome (96px) -->
+    <link rel="icon" type="image/png" sizes="96x96" href="{% static 'img/favicon-96x96.png' %}" />
+
+    <!-- Иконка для iPhone / iPad (при добавлении на рабочий стол) -->
+    <link rel="apple-touch-icon" href="{% static 'img/apple-touch-icon.png' %}" />
+
+    <!-- Файл манифеста для Android (PWA) -->
+    <link rel="manifest" href="{% static 'img/site.webmanifest' %}" />
 
     {% comment %} <script>
     // Авто-подстановка CSRF для всех HTMX POST-запросов

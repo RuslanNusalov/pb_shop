@@ -14,24 +14,27 @@ logger = logging.getLogger(__name__)
 
 class IndexView(WishlistContextMixin, TemplateView):
     template_name = 'main/index.html'
-    partial_template_name = 'main/partials/index_content.html'  # ← Фрагмент для HTMX
+    partial_template_name = 'main/partials/index_content.html'
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['banners'] = Banner.objects.filter(is_active=True)
-        context['categories'] = Category.objects.all()
+        context['categories'] = Category.objects.filter(is_active=True)
         context['current_category_slug'] = None
         context['new_products'] = Product.objects.filter(
             is_active=True
         ).exclude(slug__isnull=True).exclude(slug='').order_by('-created_at')[:8]
+        
         return context
 
     def get(self, request, *args, **kwargs):
         context = self.get_context_data(**kwargs)
-        # ✅ Если запрос от HTMX → отдаём только контент
+        
+        # ✅ HTMX → отдаём только контент (без хедера/футера)
         if request.headers.get('HX-Request'):
             return TemplateResponse(request, self.partial_template_name, context)
-        # ✅ Иначе → полная страница
+            
+        # ✅ Обычный GET → полная страница
         return TemplateResponse(request, self.template_name, context)
 
 
