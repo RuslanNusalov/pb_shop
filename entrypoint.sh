@@ -17,7 +17,7 @@ echo "🚀 Запуск миграций..."
 python manage.py migrate --noinput
 
 echo "📦 Сборка статики..."
-python manage.py collectstatic --noinput --clear || true
+python manage.py collectstatic --noinput --clear
 
 echo "🔥 Запуск Gunicorn..."
 exec gunicorn pb_shop.wsgi:application \
