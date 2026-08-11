@@ -117,9 +117,9 @@ DATETIME_FORMAT = 'd.m.Y H:i'
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
-# ✅ ЖЁСТКО УКАЗЫВАЕМ ПУТЬ (без проверки exists)
+# ✅ Динамический путь (Django сам вычислит /app/static)
 STATICFILES_DIRS = [
-    '/app/static',  # Amvera: папка static в корне проекта
+    BASE_DIR / 'static',
 ]
 
 # Стандартные сборщики
