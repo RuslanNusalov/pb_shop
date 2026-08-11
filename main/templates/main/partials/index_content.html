@@ -1,64 +1,74 @@
 {% load static %}
 
-<!-- Главный контейнер -->
-<div id="main-content" class="fade-in">
-    
-    <!-- Слайдер Баннеров -->
-    <section class="relative w-full h-[500px] md:h-[600px] lg:h-[700px] mb-12 overflow-hidden">
-        <div class="swiper main-swiper w-full h-full">
-            <div class="swiper-wrapper">
-                {% for banner in banners %}
-                <div class="swiper-slide relative">
-                    {% if banner.image %}
-                        <img src="{{ banner.image.url }}" alt="{{ banner.title }}" class="w-full h-full object-cover">
-                    {% else %}
-                        <div class="w-full h-full bg-gray-300 flex items-center justify-center">Нет картинки</div>
-                    {% endif %}
-                    
-                    <div class="absolute inset-0 bg-black/40"></div>
-                    <div class="absolute inset-0 flex items-center">
-                        <div class="container mx-auto px-4">
-                            <div class="max-w-2xl text-white">
-                                <h1 class="text-4xl md:text-6xl font-bold mb-4">{{ banner.title|upper }}</h1>
-                                <p class="text-lg text-gray-100 mb-8">{{ banner.subtitle }}</p>
-                                <a href="{{ banner.link }}" class="inline-block px-8 py-4 bg-white text-black font-bold hover:bg-gray-200 transition">
-                                    {{ banner.button_text|default:"ПОДРОБНЕЕ" }}
-                                </a>
-                            </div>
+<!-- Слайдер Баннеров -->
+<section class="relative w-full h-[500px] md:h-[600px] lg:h-[700px] mb-12 overflow-hidden">
+    <div class="swiper main-swiper w-full h-full">
+        <div class="swiper-wrapper">
+            {% for banner in banners %}
+            <div class="swiper-slide relative">
+                {% if banner.image %}
+                    <img src="{{ banner.image.url }}" alt="{{ banner.title }}" class="w-full h-full object-cover">
+                {% else %}
+                    <div class="w-full h-full bg-gray-300 flex items-center justify-center">Нет картинки</div>
+                {% endif %}
+                
+                <div class="absolute inset-0 bg-black/40"></div>
+                <div class="absolute inset-0 flex items-center">
+                    <div class="container mx-auto px-4">
+                        <div class="max-w-2xl text-white">
+                            <h1 class="text-4xl md:text-6xl font-bold mb-4">{{ banner.title|upper }}</h1>
+                            <p class="text-lg text-gray-100 mb-8">{{ banner.subtitle }}</p>
+                            <a href="{{ banner.link }}" class="inline-block px-8 py-4 bg-white text-black font-bold hover:bg-gray-200 transition">
+                                {{ banner.button_text|default:"ПОДРОБНЕЕ" }}
+                            </a>
                         </div>
                     </div>
                 </div>
-                {% endfor %}
-            </div>
-            <!-- Стрелки -->
-            <div class="swiper-button-next !text-white hidden md:flex"></div>
-            <div class="swiper-button-prev !text-white hidden md:flex"></div>
-        </div>
-    </section>
-
-    <!-- Новинки (Сетка) -->
-    <section class="container mx-auto px-4 py-12">
-        <h2 class="text-2xl font-bold tracking-tight mb-8">НОВИНКИ</h2>
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
-            {% for product in new_products %}
-            <div class="group">
-                <a href="{% url 'main:product_detail' product.slug %}" 
-                   hx-get="{% url 'main:product_detail' product.slug %}" 
-                   hx-target="#main-content" 
-                   hx-push-url="true"
-                   class="block">
-                    <div class="aspect-[3/4] overflow-hidden bg-gray-100 rounded-lg mb-3">
-                        {% if product.main_image %}
-                            <img src="{{ product.main_image.url }}" alt="{{ product.name }}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
-                        {% else %}
-                            <div class="w-full h-full bg-gray-200"></div>
-                        {% endif %}
-                    </div>
-                    <h3 class="text-sm font-medium text-gray-900 truncate">{{ product.name }}</h3>
-                    <p class="text-sm font-bold">₽{{ product.price }}</p>
-                </a>
             </div>
             {% endfor %}
         </div>
-    </section>
-</div>
+        <!-- Стрелки -->
+        <div class="swiper-button-next !text-white hidden md:flex"></div>
+        <div class="swiper-button-prev !text-white hidden md:flex"></div>
+    </div>
+</section>
+
+<!-- Новинки (Сетка) -->
+<section class="container mx-auto px-4 py-12">
+    <h2 class="text-2xl font-bold tracking-tight mb-8">НОВИНКИ</h2>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
+        {% for product in new_products %}
+        <div class="group">
+            <a href="{% url 'main:product_detail' product.slug %}" 
+               hx-get="{% url 'main:product_detail' product.slug %}" 
+               hx-target="#main-content" 
+               hx-push-url="true"
+               class="block">
+                <div class="aspect-[3/4] overflow-hidden bg-gray-100 rounded-lg mb-3">
+                    {% if product.main_image %}
+                        <img src="{{ product.main_image.url }}" alt="{{ product.name }}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+                    {% else %}
+                        <div class="w-full h-full bg-gray-200"></div>
+                    {% endif %}
+                </div>
+                <h3 class="text-sm font-medium text-gray-900 truncate">{{ product.name }}</h3>
+                <p class="text-sm font-bold">₽{{ product.price }}</p>
+            </a>
+        </div>
+        {% endfor %}
+    </div>
+</section>
+
+<!-- Категории -->
+<section class="container mx-auto px-4 mb-16">
+    <h2 class="text-2xl font-bold mb-8 text-center">КАТЕГОРИИ</h2>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {% for category in categories %}
+        <a href="{% url 'main:catalog' category.slug %}" class="block p-8 border hover:bg-gray-50 transition-colors rounded-lg">
+            <h3 class="text-xl font-bold text-center">{{ category.name }}</h3>
+        </a>
+        {% empty %}
+            <p class="col-span-full text-center text-gray-500">Категории скоро появятся</p>
+        {% endfor %}
+    </div>
+</section>
