@@ -188,3 +188,10 @@ if not DEBUG:
         print(f"   SECRET_KEY: {'SET' if SECRET_KEY else 'MISSING'}", file=sys.stderr)
         print(f"   ALLOWED_HOSTS: {ALLOWED_HOSTS}", file=sys.stderr)
         raise
+    print(" WHITE NOISE CHECK:", file=sys.stderr)
+    print(f"   STATIC_ROOT: {STATIC_ROOT}", file=sys.stderr)
+    print(f"   Exists: {STATIC_ROOT.exists()}", file=sys.stderr)
+    
+    if not STATIC_ROOT.exists():
+        print("   CREATING staticfiles directory...", file=sys.stderr)
+        STATIC_ROOT.mkdir(parents=True, exist_ok=True)
