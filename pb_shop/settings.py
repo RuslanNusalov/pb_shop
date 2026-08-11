@@ -3,6 +3,7 @@ Django settings for pb_shop project.
 """
 
 import os
+import sys
 from pathlib import Path
 
 from django.core.exceptions import ImproperlyConfigured
@@ -155,3 +156,18 @@ if not DEBUG:
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SAMESITE = 'Lax'
     SESSION_COOKIE_SAMESITE = 'Lax'
+
+
+
+
+
+# 🛠️ DEBUG: Проверка путей статики (удали после настройки)
+if DEBUG:
+    print(f"\n🔍 DEBUG STATIC:", file=sys.stderr)
+    print(f"BASE_DIR: {BASE_DIR}", file=sys.stderr)
+    print(f"STATIC_ROOT: {STATIC_ROOT}", file=sys.stderr)
+    print(f"STATICFILES_DIRS: {STATICFILES_DIRS}", file=sys.stderr)
+    for path in STATICFILES_DIRS:
+        exists = Path(path).exists() if isinstance(path, (str, Path)) else False
+        print(f"  → {path} exists: {exists}", file=sys.stderr)
+    print("\n", file=sys.stderr)
