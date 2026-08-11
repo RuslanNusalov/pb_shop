@@ -24,11 +24,6 @@
       "path": "/app/media",
       "volume": "media-storage",
       "mode": "rw"
-    },
-    {
-      "path": "/app/static",
-      "volume": "static-storage",
-      "mode": "rw"
     }
   ],
   "healthcheck": {
