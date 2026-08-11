@@ -28,5 +28,4 @@ LICENSE
 .DS_Store
 **/.DS_Store
 
-static
 node_modules
