@@ -115,7 +115,18 @@ DATETIME_FORMAT = 'd.m.Y H:i'
 
 # 📁 Статика и медиа
 STATIC_URL = '/static/'
-STATIC_ROOT = BASE_DIR / 'static'
+#  ПАПКУ ДЛЯ СОБРАННОЙ СТАТИКИ (должна отличаться от исходной!)
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+#  ПАПКИ С ИСХОДНОЙ СТАТИКОЙ (откуда Django будет брать файлы)
+STATICFILES_DIRS = [
+    BASE_DIR / 'static',  # Твоя папка static/img/favicon.ico и т.д.
+]
+
+# Стандартные сборщики
+STATICFILES_FINDERS = [
+    'django.contrib.staticfiles.finders.FileSystemFinder',
+    'django.contrib.staticfiles.finders.AppDirectoriesFinder',
+]
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'  # Для Amvera: смонтируй /app/media в Storage
