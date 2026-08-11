@@ -3,7 +3,6 @@ Django settings for pb_shop project.
 """
 
 import os
-import sys
 from pathlib import Path
 
 from django.core.exceptions import ImproperlyConfigured
@@ -12,15 +11,6 @@ from dotenv import load_dotenv
 load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-
-# 🕵️‍♂️ ДИАГНОСТИКА: Выводим реальную структуру корня проекта в логи
-_app_root = Path('/app')
-print(f"📂 РЕАЛЬНОЕ СОДЕРЖИМОЕ /app:", file=sys.stderr)
-try:
-    for item in sorted(_app_root.iterdir()):
-        print(f"  • {item.name} {'[ПАПКА]' if item.is_dir() else '[ФАЙЛ]'}", file=sys.stderr)
-except PermissionError:
-    print("  ⚠️ Нет прав на чтение /app", file=sys.stderr)
 
 # 🔐 Безопасность
 SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-change-me')
@@ -125,25 +115,12 @@ DATETIME_FORMAT = 'd.m.Y H:i'
 
 # 📁 Статика и медиа
 STATIC_URL = '/static/'
-#  ПАПКУ ДЛЯ СОБРАННОЙ СТАТИКИ (должна отличаться от исходной!)
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
-# 🔍 АВТО-ПОИСК ПАПКИ STATIC
-_possible_paths = [
-    BASE_DIR / 'static',                # /app/static/
-    BASE_DIR / 'pb_shop' / 'static',    # /app/pb_shop/static/
-    BASE_DIR / 'main' / 'static',       # /app/main/static/
+# ✅ ЖЁСТКО УКАЗЫВАЕМ ПУТЬ (без проверки exists)
+STATICFILES_DIRS = [
+    '/app/static',  # Amvera: папка static в корне проекта
 ]
-
-STATICFILES_DIRS = [p for p in _possible_paths if p.exists()]
-
-# Выводим в логи, что нашли (поможет понять структуру на сервере)
-print(f" STATIC SEARCH: BASE_DIR={BASE_DIR}", file=sys.stderr)
-print(f"   Checked: {_possible_paths}", file=sys.stderr)
-print(f"   ✅ Found & Using: {STATICFILES_DIRS}", file=sys.stderr)
-
-if not STATICFILES_DIRS:
-    print("️ WARNING: Static folder not found! Check repo structure.", file=sys.stderr)
 
 # Стандартные сборщики
 STATICFILES_FINDERS = [
@@ -173,7 +150,15 @@ CSRF_TRUSTED_ORIGINS = [
 
 # ⚡ Продакшен-настройки (только если DEBUG=False)
 if not DEBUG:
-    STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+    # ✅ Новый формат для Django 4.2+
+    STORAGES = {
+        "default": {
+            "BACKEND": "django.core.files.storage.FileSystemStorage",
+        },
+        "staticfiles": {
+            "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+        },
+    }
     CSRF_COOKIE_SECURE = True
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SAMESITE = 'Lax'
