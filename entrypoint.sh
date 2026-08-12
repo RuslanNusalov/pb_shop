@@ -1,6 +1,11 @@
 #!/bin/bash
 set -e
 
+# 🔍 ПОЛНЫЙ СПИСОК ФАЙЛОВ В /app (для отладки)
+echo "🔍 FULL /app CONTENTS:" >&2
+find /app -maxdepth 3 -type f -name "*.ico" -o -name "*.svg" -o -name "test_static.txt" 2>/dev/null | head -20 >&2
+echo "🔍 STATIC FOLDER CHECK:" >&2
+ls -laR /app/static 2>&1 | head -30 >&2 || echo "❌ /app/static NOT FOUND" >&2
 echo "========================================"
 echo "📂 1. ПРОВЕРКА КОРНЯ (/app)"
 echo "========================================"

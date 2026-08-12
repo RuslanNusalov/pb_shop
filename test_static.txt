@@ -1,0 +1,5 @@
+# Локально в корне проекта:
+echo "DEPLOY_TEST_OK" > test_static.txt
+git add test_static.txt
+git commit -m "Add test file for deployment debug"
+git push
