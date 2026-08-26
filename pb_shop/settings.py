@@ -165,33 +165,7 @@ if not DEBUG:
     WHITENOISE_MANIFEST_STRICT = False 
     
     # ️ Включи эти настройки ПОЗЖЕ, когда убедимся, что сайт работает:
-    # CSRF_COOKIE_SECURE = True
-    # SESSION_COOKIE_SECURE = True
-    # CSRF_COOKIE_SAMESITE = 'Lax'
-    # SESSION_COOKIE_SAMESITE = 'Lax'
-
-# ️‍♂️ ТОЧНАЯ ДИАГНОСТИКА STATICFILES (БЕЗОПАСНАЯ ВЕРСИЯ)
-if not DEBUG:
-    import sys
-    from pathlib import Path
-    
-    print("\n🔍 STATICFILES DEEP CHECK:", file=sys.stderr)
-    
-    # 1. Проверка папки staticfiles
-    if STATIC_ROOT.exists():
-        files = list(STATIC_ROOT.rglob('*'))[:20]
-        print(f"   ✅ Files in STATIC_ROOT ({len(files)} found):", file=sys.stderr)
-        for f in files:
-            print(f"     • {f.relative_to(STATIC_ROOT)}", file=sys.stderr)
-    else:
-        # Это нормально, если collectstatic ещё не отработал!
-        print("   ⚠️ STATIC_ROOT does not exist yet (will be created by collectstatic)", file=sys.stderr)
-    
-    # 2. Проверка WhiteNoise (исправленная)
-    try:
-        import whitenoise
-        print(f"   ✅ WhiteNoise is installed and ready", file=sys.stderr)
-    except ImportError:
-        print("   ❌ WhiteNoise NOT INSTALLED!", file=sys.stderr)
-    
-    print("\n", file=sys.stderr)
+    CSRF_COOKIE_SECURE = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SAMESITE = 'Lax'
+    SESSION_COOKIE_SAMESITE = 'Lax'

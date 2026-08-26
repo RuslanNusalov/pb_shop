@@ -39,7 +39,7 @@
         <!-- Additional Images -->
         {% if product.images.all %}
         <div class="grid grid-cols-3 gap-2">
-            {% for image in product.images.all %}
+            {% for image in product.images.all|dictsort:"id" %}
             <button type="button"
                     class="aspect-square overflow-hidden bg-gray-100 rounded-lg cursor-pointer hover:opacity-90 transition-opacity focus:outline-none focus:ring-2 focus:ring-black"
                     onclick="document.getElementById('main-product-image').src = '{{ image.image.url }}'"

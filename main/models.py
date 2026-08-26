@@ -81,6 +81,9 @@ class ProductImage(models.Model):
     )
     image = models.ImageField(upload_to='products/extra/')
 
+    class Meta:
+        ordering = ['id']  # Гарантирует порядок по ID
+
 
 class Banner(models.Model):
     title = models.CharField("Заголовок", max_length=255)
