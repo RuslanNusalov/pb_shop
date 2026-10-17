@@ -26,9 +26,9 @@
       "mode": "rw"
     }
   ],
-  "healthcheck": {
+    "healthcheck": {
     "httpGet": {
-      "path": "/admin/",
+      "path": "/",
       "port": 8000
     },
     "initialDelaySeconds": 30,
