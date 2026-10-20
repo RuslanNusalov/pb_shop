@@ -23,7 +23,7 @@ echo "📦 4. COLLECTSTATIC"
 echo "========================================"
 python manage.py collectstatic --noinput --clear --verbosity 2
 
-# Временное создание суперпользователя (Обязательно УДАЛИТЬ ПОСЛЕ СОЗДАНИЯ!)
+# Временное создание суперпользователя (УДАЛИТЬ ПОСЛЕ СОЗДАНИЯ!)
 export DJANGO_SUPERUSER_USERNAME="admin"
 export DJANGO_SUPERUSER_EMAIL="spbpb@bk.ru"
 export DJANGO_SUPERUSER_PASSWORD="zipjyk-nudju6-cUffot"
