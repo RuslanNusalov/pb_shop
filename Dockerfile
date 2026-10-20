@@ -19,7 +19,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && apt-get clean
 
 # Poetry
-RUN pip install --no-cache-dir "poetry==${POETRY_VERSION}"
+RUN pip install --no-cache-dir --upgrade pip \
+    && pip install --no-cache-dir "poetry==${POETRY_VERSION}"
 
 # Зависимости Python
 COPY pyproject.toml poetry.lock ./
