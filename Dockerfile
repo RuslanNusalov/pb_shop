@@ -44,7 +44,7 @@ EXPOSE 8000
 
 # Healthcheck: проверяем корень сайта
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/')" || exit 1
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/')" || exit 1
 
 # Запускаем entrypoint
 CMD ["/app/entrypoint.sh"]
