@@ -2,11 +2,6 @@ from django.conf import settings
 from django.contrib import admin
 from django.urls import include, path
 from django.views.static import serve
-from django.http import HttpResponse
-
-
-def health_check(request):
-    return HttpResponse("OK", status=200)
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -16,7 +11,6 @@ urlpatterns = [
     path('orders/', include('orders.urls', namespace='orders')),
     path('payment/', include('payment.urls', namespace='payment')),
     path('wishlist/', include('wishlist.urls')),
-    path('health/', health_check, name='health-check'),
 ]
 
 # ✅ Раздача медиа-файлов (работает и при DEBUG=True, и при DEBUG=False)

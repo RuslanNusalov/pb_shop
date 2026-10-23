@@ -145,7 +145,9 @@ LOGOUT_REDIRECT_URL = 'main:index'
 CSRF_TRUSTED_ORIGINS = [
     'https://spbpb.ru',
     'https://www.spbpb.ru',
-    'https://*.amvera.tech',
+    'http://spbpb.ru',       # Добавлено для тестов, пока нет HTTPS
+    'http://www.spbpb.ru',   # Добавлено для тестов, пока нет HTTPS
+    'https://*.amvera.tech', # Новая инфраструктура
 ]
 
 
