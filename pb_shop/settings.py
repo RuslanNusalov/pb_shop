@@ -165,7 +165,7 @@ if not DEBUG:
     WHITENOISE_MANIFEST_STRICT = False 
     
     # ️ Включи эти настройки ПОЗЖЕ, когда убедимся, что сайт работает:
-    CSRF_COOKIE_SECURE = True
-    SESSION_COOKIE_SECURE = True
+    # CSRF_COOKIE_SECURE = True
+    # SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SAMESITE = 'Lax'
     SESSION_COOKIE_SAMESITE = 'Lax'
