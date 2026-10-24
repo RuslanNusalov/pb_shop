@@ -28,7 +28,7 @@
   ],
     "healthcheck": {
     "httpGet": {
-      "path": "/health/",
+      "path": "/admin/login/",
       "port": 8000
     },
     "initialDelaySeconds": 30,
