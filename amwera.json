@@ -12,7 +12,7 @@
   },
   "env": {
     "DEBUG": "False",
-    "ALLOWED_HOSTS": "${AMVERA_APP_HOST},*.amvera.tech",
+    "ALLOWED_HOSTS": "${AMVERA_APP_HOST},*.amvera.tech,spbpb.ru,www.spbpb.ru,localhost,127.0.0.1",
     "POSTGRES_HOST": "${POSTGRES_HOST}",
     "POSTGRES_PORT": "${POSTGRES_PORT}",
     "POSTGRES_DB": "${POSTGRES_DB}",
