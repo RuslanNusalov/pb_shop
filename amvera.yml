@@ -1,15 +1,15 @@
----
 meta:
   environment: docker
   toolchain:
     name: docker
-    version: latest
 build:
   dockerfile: Dockerfile
   skip: false
 run:
-  persistenceMount: /app/media
   image: null
   command: null
   args: null
+  persistenceMount: /app/media
   containerPort: 8000
+  singleton: true
+  zeroDowntime: false
