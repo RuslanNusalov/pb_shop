@@ -9,7 +9,7 @@ run:
   image: null
   command: null
   args: null
-  persistenceMount: /app/media
+  persistenceMount: /home/appuser/media
   containerPort: 8000
   singleton: true
   zeroDowntime: false

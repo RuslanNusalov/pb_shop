@@ -129,7 +129,7 @@ STATICFILES_FINDERS = [
 ]
 
 MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'  # Для Amvera: смонтируй /app/media в Storage
+MEDIA_ROOT = BASE_DIR / '/home/appuser/media'  # Для Amvera: смонтируй /app/media в Storage
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
