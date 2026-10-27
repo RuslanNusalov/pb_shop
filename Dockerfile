@@ -35,7 +35,7 @@ RUN chmod +x /app/entrypoint.sh
 
 # Права доступа
 RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
-USER appuser
+# USER appuser
 
 # Создаём папку для медиа
 RUN mkdir -p /app/media && chown appuser:appuser /app/media
