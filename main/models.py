@@ -1,11 +1,39 @@
+import io
+
+from django.core.files.base import ContentFile
 from django.db import models
 from django.utils.text import slugify
+from PIL import Image
+
+
+def resize_image(image_field, target_size=(900, 1200)):
+    """
+    Вспомогательная функция для изменения размера изображения.
+    """
+    if not image_field:
+        return
+    
+    # Открываем изображение
+    img = Image.open(image_field)
+    
+    img.thumbnail(target_size, Image.Resampling.LANCZOS)
+
+    # Конвертируем в RGB, если это PNG с прозрачностью, чтобы сохранить как JPEG (это сильно экономит место)
+    if img.mode != 'RGB':
+        img = img.convert('RGB')
+
+    # Сохраняем обработанное изображение в память
+    image_io = io.BytesIO()
+    # quality=85 — золотой стандарт: глаз не видит разницы, а вес файла падает в 3-5 раз
+    img.save(image_io, format='JPEG', quality=85)
+    
+    # Заменяем оригинальный файл на обработанный (save=False, чтобы не вызывать рекурсию)
+    image_field.save(image_field.name, ContentFile(image_io.getvalue()), save=False)
 
 
 class Category(models.Model):
     name = models.CharField(max_length=120)
     slug = models.SlugField(max_length=120, unique=True)
-
     is_active = models.BooleanField(default=True, help_text="Скрыть категорию с сайта")
 
     def save(self, *args, **kwargs):
@@ -49,6 +77,11 @@ class Product(models.Model):
     def save(self, *args, **kwargs):
         if not self.slug:
             self.slug = slugify(self.name)
+        
+        # Применяем изменение размера к главному изображению
+        if self.main_image:
+            resize_image(self.main_image)
+            
         super().save(*args, **kwargs)
 
     class Meta:
@@ -81,6 +114,12 @@ class ProductImage(models.Model):
     )
     image = models.ImageField(upload_to='products/extra/')
 
+    def save(self, *args, **kwargs):
+        # Применяем изменение размера к дополнительным изображениям
+        if self.image:
+            resize_image(self.image)
+        super().save(*args, **kwargs)
+
     class Meta:
         ordering = ['id']  # Гарантирует порядок по ID
 
@@ -93,6 +132,12 @@ class Banner(models.Model):
     link = models.CharField("Ссылка (URL или slug)", max_length=255, default="/")
     order = models.PositiveIntegerField("Порядок", default=0, help_text="Меньшее число = раньше")
     is_active = models.BooleanField("Активен", default=True)
+
+    def save(self, *args, **kwargs):
+        # Применяем изменение размера к изображениям баннеров
+        if self.image:
+            resize_image(self.image)
+        super().save(*args, **kwargs)
 
     class Meta:
         verbose_name = "Баннер"
