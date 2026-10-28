@@ -18,12 +18,12 @@
         <!-- Product Images -->
         <div class="space-y-4">
             <!-- Main Image -->
-            <div class="aspect-square overflow-hidden bg-gray-100 rounded-lg">
+            <div class="aspect-[3/4] overflow-hidden bg-gray-100 rounded-lg">
                 {% if product.main_image %}
                     <img id="main-product-image" 
                          src="{{ product.main_image.url }}" 
                          alt="{{ product.name }}" 
-                         class="w-full h-full object-cover transition-transform duration-300 hover:scale-105">
+                         class="w-full h-full object-contain transition-transform duration-300 hover:scale-105">
                 {% else %}
                     <div class="w-full h-full bg-gray-200 flex items-center justify-center">
                         <span class="text-gray-400 text-sm">Нет изображения</span>
@@ -36,12 +36,12 @@
             <div class="grid grid-cols-3 gap-2">
                 {% for image in product.images.all %}
                 <button type="button"
-                        class="aspect-square overflow-hidden bg-gray-100 rounded-lg cursor-pointer hover:opacity-90 transition-opacity focus:outline-none focus:ring-2 focus:ring-black"
+                        class="aspect-[3/4] overflow-hidden bg-gray-100 rounded-lg cursor-pointer hover:opacity-90 transition-opacity focus:outline-none focus:ring-2 focus:ring-black"
                         onclick="document.getElementById('main-product-image').src = '{{ image.image.url }}'"
                         aria-label="Показать изображение {{ forloop.counter }}">
                     <img src="{{ image.image.url }}" 
                          alt="{{ product.name }} - вид {{ forloop.counter }}" 
-                         class="w-full h-full object-cover">
+                         class="w-full h-full object-contain">
                 </button>
                 {% endfor %}
             </div>
@@ -153,11 +153,11 @@
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {% for rp in related_products %}
             <a href="{% url 'main:product_detail' rp.slug %}" class="product-card group block">
-                <div class="aspect-square overflow-hidden bg-gray-100 rounded-lg mb-4">
+                <div class="aspect-[3/4] overflow-hidden bg-gray-100 rounded-lg mb-4">
                     {% if rp.main_image %}
                         <img src="{{ rp.main_image.url }}" 
                              alt="{{ rp.name }}" 
-                             class="product-image w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
+                             class="product-image w-full h-full object-contain group-hover:scale-105 transition-transform duration-300">
                     {% else %}
                         <div class="bg-gray-200 flex items-center justify-center h-full">
                             <span class="text-gray-400 text-sm">Нет фото</span>
