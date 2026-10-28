@@ -47,11 +47,11 @@
             hx-target="#main-content"
             hx-push-url="true">
             
-            <div class="aspect-square overflow-hidden bg-gray-100 mb-3 relative">
+            <div class="aspect-[3/4] overflow-hidden bg-gray-100 mb-3 relative">
                 {% if product.main_image %}
                     <img src="{{ product.main_image.url }}" 
                         alt="{{ product.name }}" 
-                        class="product-image w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
+                        class="product-image w-full h-full object-contain group-hover:scale-105 transition-transform duration-300">
                 {% else %}
                     <div class="product-image w-full h-full bg-gray-200 flex items-center justify-center">
                         <span class="text-gray-400 text-xs">Нет изображения</span>
