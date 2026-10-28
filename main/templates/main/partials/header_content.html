@@ -1,0 +1,167 @@
+<!-- 🔥 HEADER - Минималистичный дизайн 🔥 -->
+<header class="sticky top-0 z-50 bg-white border-b border-gray-200 shadow-sm">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex items-center justify-between h-16">
+            
+            <!-- ЛОГОТИП -->
+            <a href="{% url 'main:index' %}" class="flex-shrink-0">
+                <h1 class="text-xl font-black tracking-tighter text-gray-900 hover:text-gray-700 transition-colors">
+                    ПРАВЫЙ БЕРЕГ
+                </h1>
+            </a>
+
+            <!-- ГЛАВНОЕ МЕНЮ (десктоп) -->
+            <nav class="hidden lg:flex items-center space-x-8">
+                <a href="{% url 'main:catalog' 'hudi' %}" 
+                   class="text-sm font-medium text-gray-700 hover:text-black transition-colors">
+                    ХУДИ
+                </a>
+                <a href="{% url 'main:catalog' 'svitshot' %}" 
+                   class="text-sm font-medium text-gray-700 hover:text-black transition-colors">
+                    СВИТШОТЫ
+                </a>
+                <a href="{% url 'main:catalog' 'hudi-s-molniej' %}" 
+                   class="text-sm font-medium text-gray-700 hover:text-black transition-colors">
+                    ХУДИ С МОЛНИЕЙ
+                </a>
+                
+                <!-- Выпадающее меню для футболок -->
+                <div class="relative group">
+                    <button class="text-sm font-medium text-gray-700 hover:text-black transition-colors flex items-center gap-1 focus:outline-none">
+                        ФУТБОЛКИ
+                        <svg class="w-4 h-4 transition-transform group-hover:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                        </svg>
+                    </button>
+                    <!-- Выпадающий список -->
+                    <div class="absolute top-full left-0 mt-2 w-56 bg-white border border-gray-200 rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 transform group-hover:translate-y-0 translate-y-2">
+                        <div class="py-2">
+                            <a href="{% url 'main:catalog' 'futbolki-oversize' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-black transition-colors">OVERSIZE</a>
+                            <a href="{% url 'main:catalog' 'futbolki-chernye' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-black transition-colors">ЧЕРНЫЕ</a>
+                            <a href="{% url 'main:catalog' 'futbolki-lazurnye' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-black transition-colors">ЛАЗУРНЫЕ</a>
+                            <a href="{% url 'main:catalog' 'futbolki-detskie' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-black transition-colors">ДЕТСКИЕ</a>
+                            <a href="{% url 'main:catalog' 'futbolki-belye' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-black transition-colors">БЕЛЫЕ</a>
+                        </div>
+                    </div>
+                </div>
+            </nav>
+
+            <!-- ИКОНКИ ДЕЙСТВИЙ -->
+            <div class="flex items-center space-x-4">
+                <!-- Поиск -->
+                <button class="text-gray-700 hover:text-black transition-colors focus:outline-none">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                    </svg>
+                </button>
+
+                <!-- Избранное -->
+                <a href="{% url 'wishlist:list' %}" class="relative text-gray-700 hover:text-black transition-colors">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
+                    </svg>
+                    {% if wishlist_count %}
+                    <span class="absolute -top-2 -right-2 bg-black text-white text-xs rounded-full w-4 h-4 flex items-center justify-center font-medium">
+                        {{ wishlist_count }}
+                    </span>
+                    {% endif %}
+                </a>
+
+                <!-- Корзина -->
+                <a href="{% url 'cart:cart_detail' %}" class="relative text-gray-700 hover:text-black transition-colors">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/>
+                    </svg>
+                    <span id="cart-count" class="absolute -top-2 -right-2 bg-black text-white text-xs rounded-full w-4 h-4 flex items-center justify-center font-medium">
+                        {{ cart_count|default:0 }}
+                    </span>
+                </a>
+
+                <!-- Личный кабинет -->
+                <a href="{% url 'users:profile' %}" class="text-gray-700 hover:text-black transition-colors">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                    </svg>
+                </a>
+
+                <!-- Мобильное меню (бургер) -->
+                <button id="mobile-menu-btn" class="lg:hidden text-gray-700 hover:text-black transition-colors focus:outline-none">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- МОБИЛЬНОЕ МЕНЮ (скрыто по умолчанию) -->
+    <div id="mobile-menu" class="hidden lg:hidden border-t border-gray-200 bg-white">
+        <div class="px-4 py-4 space-y-3">
+            <a href="{% url 'main:catalog' 'hudi' %}" class="block text-sm font-medium text-gray-700 hover:text-black py-2">ХУДИ</a>
+            <a href="{% url 'main:catalog' 'svitshot' %}" class="block text-sm font-medium text-gray-700 hover:text-black py-2">СВИТШОТЫ</a>
+            <a href="{% url 'main:catalog' 'hudi-s-molniej' %}" class="block text-sm font-medium text-gray-700 hover:text-black py-2">ХУДИ С МОЛНИЕЙ</a>
+            
+            <!-- Футболки (мобильное) -->
+            <div>
+                <button id="mobile-tshirts-btn" class="flex items-center justify-between w-full text-sm font-medium text-gray-700 hover:text-black py-2">
+                    ФУТБОЛКИ
+                    <svg class="w-4 h-4 transition-transform" id="mobile-tshirts-arrow" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                    </svg>
+                </button>
+                <div id="mobile-tshirts-menu" class="hidden pl-4 space-y-2 mt-2">
+                    <a href="{% url 'main:catalog' 'futbolki-oversize' %}" class="block text-sm text-gray-600 hover:text-black py-1">OVERSIZE</a>
+                    <a href="{% url 'main:catalog' 'futbolki-chernye' %}" class="block text-sm text-gray-600 hover:text-black py-1">ЧЕРНЫЕ</a>
+                    <a href="{% url 'main:catalog' 'futbolki-lazurnye' %}" class="block text-sm text-gray-600 hover:text-black py-1">ЛАЗУРНЫЕ</a>
+                    <a href="{% url 'main:catalog' 'futbolki-detskie' %}" class="block text-sm text-gray-600 hover:text-black py-1">ДЕТСКИЕ</a>
+                    <a href="{% url 'main:catalog' 'futbolki-belye' %}" class="block text-sm text-gray-600 hover:text-black py-1">БЕЛЫЕ</a>
+                </div>
+            </div>
+
+            <!-- Разделитель -->
+            <div class="border-t border-gray-200 pt-3 mt-3">
+                <a href="{% url 'wishlist:list' %}" class="flex items-center gap-2 text-sm font-medium text-gray-700 hover:text-black py-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
+                    </svg>
+                    ИЗБРАННОЕ {% if wishlist_count %}({{ wishlist_count }}){% endif %}
+                </a>
+                <a href="{% url 'cart:cart_detail' %}" class="flex items-center gap-2 text-sm font-medium text-gray-700 hover:text-black py-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/>
+                    </svg>
+                    КОРЗИНА ({{ cart_count|default:0 }})
+                </a>
+                <a href="{% url 'users:profile' %}" class="flex items-center gap-2 text-sm font-medium text-gray-700 hover:text-black py-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                    </svg>
+                    ЛИЧНЫЙ КАБИНЕТ
+                </a>
+            </div>
+        </div>
+    </div>
+</header>
+
+<!-- JavaScript для мобильного меню -->
+<script>
+    // Переключение главного мобильного меню
+    const mobileMenuBtn = document.getElementById('mobile-menu-btn');
+    const mobileMenu = document.getElementById('mobile-menu');
+    
+    mobileMenuBtn.addEventListener('click', () => {
+        mobileMenu.classList.toggle('hidden');
+    });
+
+    // Переключение подменю футболок на мобильных
+    const mobileTshirtsBtn = document.getElementById('mobile-tshirts-btn');
+    const mobileTshirtsMenu = document.getElementById('mobile-tshirts-menu');
+    const mobileTshirtsArrow = document.getElementById('mobile-tshirts-arrow');
+    
+    if (mobileTshirtsBtn) {
+        mobileTshirtsBtn.addEventListener('click', () => {
+            mobileTshirtsMenu.classList.toggle('hidden');
+            mobileTshirtsArrow.classList.toggle('rotate-180');
+        });
+    }
+</script>
