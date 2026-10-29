@@ -257,26 +257,26 @@
         </div>
     </div>
 
-<!-- Header с выравниванием КАТАЛОГ ближе к логотипу -->
+<!-- Header с правильным мобильным меню -->
 <header class="sticky top-0 z-50 w-full bg-white border-b border-gray-100 shadow-sm">
     <div class="mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex justify-between items-center h-16">
             
-            <!-- ЛЕВАЯ ГРУППА: Логотип + КАТАЛОГ -->
-            <div class="flex items-center space-x-8">
-                <!-- ЛОГОТИП -->
-                <div class="flex-shrink-0">
-                    <a href="{% url 'main:index' %}" 
-                       hx-get="{% url 'main:index' %}" 
-                       hx-target="#main-content" 
-                       hx-push-url="true">
-                        <h1 class="text-sm sm:text-lg font-black tracking-tighter text-gray-900">
-                            ПРАВЫЙ БЕРЕГ
-                        </h1>
-                    </a>
-                </div>
+            <!-- ЛОГОТИП -->
+            <div class="flex-shrink-0">
+                <a href="{% url 'main:index' %}" 
+                   hx-get="{% url 'main:index' %}" 
+                   hx-target="#main-content" 
+                   hx-push-url="true">
+                    <h1 class="text-sm sm:text-lg font-black tracking-tighter text-gray-900">
+                        ПРАВЫЙ БЕРЕГ
+                    </h1>
+                </a>
+            </div>
 
-                <!-- КАТАЛОГ (сразу после логотипа) -->
+            <!-- ДЕСКТОПНЫЕ ЭЛЕМЕНТЫ (скрыты на мобильных) -->
+            <div class="hidden md:flex items-center space-x-8">
+                <!-- КАТАЛОГ с выпадающим меню -->
                 <div class="relative group">
                     <button class="text-sm font-bold text-gray-900 hover:text-gray-700 transition-colors flex items-center gap-1 focus:outline-none">
                         КАТАЛОГ
@@ -285,7 +285,6 @@
                         </svg>
                     </button>
                     
-                    <!-- Выпадающий список категорий -->
                     <div class="absolute top-full left-0 mt-2 w-64 bg-white border border-gray-200 rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 transform group-hover:translate-y-0 translate-y-2">
                         <div class="py-2">
                             {% for category in categories %}
@@ -300,11 +299,8 @@
                         </div>
                     </div>
                 </div>
-            </div>
 
-            <!-- ПРАВЫЕ ЭЛЕМЕНТЫ -->
-            <div class="flex items-center space-x-6">
-                <!-- Поиск -->
+                <!-- ПОИСК -->
                 <div class="relative" id="mobile-search-wrapper">
                     <button id="mobile-search-toggle" 
                             hx-get="{% url 'main:catalog_all' %}?show_search=true" 
@@ -315,7 +311,7 @@
                     </button>
                 </div>
 
-                <!-- Личный кабинет -->
+                <!-- ЛИЧНЫЙ КАБИНЕТ -->
                 <a href="{% url 'users:profile' %}" 
                    hx-get="{% url 'users:profile' %}" 
                    hx-target="#main-content" 
@@ -324,7 +320,7 @@
                     ЛИЧНЫЙ КАБИНЕТ
                 </a>
 
-                <!-- Избранное -->
+                <!-- ИЗБРАННОЕ -->
                 <a href="{% url 'wishlist:list' %}" 
                    hx-get="{% url 'wishlist:list' %}" 
                    hx-target="#main-content" 
@@ -334,13 +330,21 @@
                     ИЗБРАННОЕ (<span id="wishlist-count">{{ wishlist_count|default:0 }}</span>)
                 </a>
 
-                <!-- Корзина -->
+                <!-- КОРЗИНА -->
                 <a href="#" id="desktopCart" class="text-sm font-medium text-gray-900 hover:text-gray-700 transition-colors">
                     КОРЗИНА (<span id="desktop-cart-count">0</span>)
                 </a>
+            </div>
 
-                <!-- МОБИЛЬНАЯ ВЕРСИЯ: Бургер -->
-                <button id="menuToggle" class="md:hidden flex flex-col gap-1.5 p-2 focus:outline-none">
+            <!-- МОБИЛЬНЫЕ ЭЛЕМЕНТЫ (видны только на мобильных) -->
+            <div class="md:hidden flex items-center space-x-4">
+                <!-- КОРЗИНА (мобильная) -->
+                <a href="#" id="mobileCartHeader" class="text-xs font-medium text-gray-900">
+                    КОРЗИНА (<span id="mobile-cart-count">0</span>)
+                </a>
+
+                <!-- БУРГЕР -->
+                <button id="menuToggle" class="flex flex-col gap-1.5 p-2 focus:outline-none">
                     <span class="block w-6 h-0.5 bg-gray-900 transition-transform"></span>
                     <span class="block w-6 h-0.5 bg-gray-900 transition-transform"></span>
                     <span class="block w-6 h-0.5 bg-gray-900 transition-transform"></span>
@@ -349,11 +353,11 @@
         </div>
     </div>
 
-    <!-- МОБИЛЬНОЕ МЕНЮ -->
+    <!-- МОБИЛЬНОЕ МЕНЮ (выпадает при клике на бургер) -->
     <div id="mobile-menu" class="hidden md:hidden border-t border-gray-200 bg-white shadow-lg">
         <div class="px-4 py-4 space-y-2">
             
-            <!-- Каталог (мобильный) -->
+            <!-- КАТАЛОГ (мобильный, раскрывающийся) -->
             <div>
                 <button id="mobile-catalog-btn" class="flex items-center justify-between w-full text-sm font-bold text-gray-900 py-3 border-b border-gray-100">
                     КАТАЛОГ
@@ -362,7 +366,6 @@
                     </svg>
                 </button>
                 
-                <!-- Список категорий (мобильный) -->
                 <div id="mobile-catalog-menu" class="hidden pl-4 space-y-1 mt-2">
                     {% for category in categories %}
                     <a href="{% url 'main:catalog' category.slug %}" 
@@ -404,7 +407,6 @@
         </div>
     </div>
 </header>
-
 
 <div id="cart-container"></div>
 
