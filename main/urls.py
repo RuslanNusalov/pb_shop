@@ -1,4 +1,6 @@
 from django.urls import path, re_path
+from django.views.generic import TemplateView
+
 from . import views
 
 app_name = 'main'
@@ -10,4 +12,9 @@ urlpatterns = [
     path('catalog/<slug:category_slug>/', views.CatalogView.as_view(), name='catalog'),
     path('catalog/', views.CatalogView.as_view(), name='catalog_all'),
     path('', views.IndexView.as_view(), name='index'),
+    path('public-offer/', TemplateView.as_view(template_name='main/public_offer.html'), 
+        name='public_offer'),
+    path('privacy-policy/', 
+         TemplateView.as_view(template_name='main/privacy_policy.html'), 
+         name='privacy_policy'),
 ]
