@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 # Точные URL из официальной документации Ozon
 OZON_AUTHORIZE_URL = "https://seller.ozon.ru/app/appstore/oauth/authorize"
-OZON_TOKEN_URL = "https://api-seller.ozon.ru/v1/oauth/token"
+OZON_TOKEN_URL = "https://api-seller.ozon.ru/oauth/token"
 
 def ozon_oauth_login(request):
     """Шаг 1: Формируем ссылку авторизации строго по документации Ozon"""
@@ -68,6 +68,12 @@ def ozon_oauth_callback(request):
     if 'ozon_oauth_state' in request.session:
         del request.session['ozon_oauth_state']
 
+    # ⚠️ ВАЖНО: добавляем User-Agent, чтобы антибот Ozon не блокировал запрос
+    headers = {
+        "Content-Type": "application/json",
+        "User-Agent": "Mozilla/5.0 (compatible; PBShopBot/1.0; +https://spbpb.ru)"
+    }
+
     # Обмен code на токены
     payload = {
         "grant_type": "authorization_code",
@@ -77,7 +83,8 @@ def ozon_oauth_callback(request):
         "redirect_uri": settings.OZON_OAUTH_REDIRECT_URI
     }
 
-    response = requests.post(OZON_TOKEN_URL, json=payload, timeout=15)
+    # ⚠️ URL теперь правильный: /oauth/token
+    response = requests.post(OZON_TOKEN_URL, json=payload, headers=headers, timeout=15)
     
     if response.status_code == 200:
         data = response.json()
@@ -96,8 +103,10 @@ def ozon_oauth_callback(request):
             "<p>Токены сохранены. Можно тестировать методы доставки.</p>"
         )
     else:
-        logger.error(f"Token exchange failed: {response.text}")
+        logger.error(f"Token exchange failed: {response.status_code} - {response.text}")
         return HttpResponse(
-            f"❌ Ошибка получения токена:<br><pre>{response.text}</pre>", 
+            f"❌ Ошибка получения токена:<br>"
+            f"Status: {response.status_code}<br>"
+            f"Body: <pre>{response.text}</pre>", 
             status=400
         )
