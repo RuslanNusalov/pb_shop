@@ -1,12 +1,7 @@
 from django.urls import path
 
-from .views import (
-    CheckoutView,
-    OrderDetailView,
-    cancel_order,
-    order_history,
-    views_oauth,
-)
+from . import views_oauth
+from .views import CheckoutView, OrderDetailView, cancel_order, order_history
 
 app_name = 'orders'
 
