@@ -171,3 +171,10 @@ if not DEBUG:
     # SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SAMESITE = 'Lax'
     SESSION_COOKIE_SAMESITE = 'Lax'
+
+
+# ==========================================================
+# 🔑 OZON DELIVERY API CREDENTIALS
+# ==========================================================
+OZON_OAUTH_CLIENT_ID = os.getenv('OZON_OAUTH_CLIENT_ID', '')
+OZON_OAUTH_CLIENT_SECRET = os.getenv('OZON_OAUTH_CLIENT_SECRET', '')

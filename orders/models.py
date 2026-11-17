@@ -275,3 +275,18 @@ class OrderItem(models.Model):
     def total_price(self):
         """Стоимость позиции = цена × количество"""
         return self.price * self.quantity
+
+
+class OzonAuth(models.Model):
+    """Хранит OAuth токены для доступа к Ozon Delivery API"""
+    access_token = models.TextField(verbose_name="Access Token")
+    refresh_token = models.TextField(verbose_name="Refresh Token")
+    expires_at = models.DateTimeField(verbose_name="Истекает")
+    is_active = models.BooleanField(default=True, verbose_name="Активен")
+
+    class Meta:
+        verbose_name = 'Ozon Авторизация'
+        verbose_name_plural = 'Ozon Авторизация'
+
+    def __str__(self):
+        return f"Ozon Token (expires: {self.expires_at})"
