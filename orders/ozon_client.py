@@ -33,33 +33,33 @@ class OzonDeliveryClient:
         return auth_record.access_token
 
     def _refresh_token(self, auth_record):
-    """Обновляет access_token с помощью refresh_token"""
-    # ⚠️ Тот же правильный URL
-    url = "https://api-seller.ozon.ru/oauth/token"
-    
-    headers = {
-        "Content-Type": "application/json",
-        "User-Agent": "Mozilla/5.0 (compatible; PBShopBot/1.0; +https://spbpb.ru)"
-    }
-    
-    payload = {
-        "client_id": self.client_id,
-        "client_secret": self.client_secret,
-        "grant_type": "refresh_token",
-        "refresh_token": auth_record.refresh_token
-    }
-    
-    response = requests.post(url, json=payload, headers=headers, timeout=15)
-    
-    if response.status_code == 200:
-        data = response.json()
-        auth_record.access_token = data['access_token']
-        auth_record.refresh_token = data.get('refresh_token', auth_record.refresh_token)
-        auth_record.expires_at = timezone.now() + timedelta(seconds=data['expires_in'])
-        auth_record.save()
-    else:
-        logger.error(f"Ошибка обновления токена Ozon: {response.status_code} - {response.text}")
-        raise Exception("Не удалось обновить токен Ozon. Требуется повторная авторизация.")
+        """Обновляет access_token с помощью refresh_token"""
+        # ✅ Тот же правильный домен xapi.ozon.ru
+        url = "https://xapi.ozon.ru/oauth/token"
+        
+        headers = {
+            "Content-Type": "application/json",
+            "User-Agent": "Mozilla/5.0 (compatible; PBShopBot/1.0; +https://spbpb.ru)"
+        }
+        
+        payload = {
+            "client_id": self.client_id,
+            "client_secret": self.client_secret,
+            "grant_type": "refresh_token",
+            "refresh_token": auth_record.refresh_token
+        }
+        
+        response = requests.post(url, json=payload, headers=headers, timeout=15)
+        
+        if response.status_code == 200:
+            data = response.json()
+            auth_record.access_token = data['access_token']
+            auth_record.refresh_token = data.get('refresh_token', auth_record.refresh_token)
+            auth_record.expires_at = timezone.now() + timedelta(seconds=data['expires_in'])
+            auth_record.save()
+        else:
+            logger.error(f"Ошибка обновления токена Ozon: {response.status_code} - {response.text}")
+            raise Exception("Не удалось обновить токен Ozon. Требуется повторная авторизация.")
 
     def _get_headers(self):
         """Возвращает заголовки с Bearer токеном"""
