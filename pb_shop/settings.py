@@ -178,3 +178,4 @@ if not DEBUG:
 # ==========================================================
 OZON_OAUTH_CLIENT_ID = os.getenv('OZON_OAUTH_CLIENT_ID', '')
 OZON_OAUTH_CLIENT_SECRET = os.getenv('OZON_OAUTH_CLIENT_SECRET', '')
+OZON_OAUTH_REDIRECT_URI = os.getenv('OZON_OAUTH_REDIRECT_URI', '')
