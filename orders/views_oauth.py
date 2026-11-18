@@ -47,57 +47,68 @@ def ozon_oauth_login(request):
 
 def ozon_oauth_callback(request):
     """Шаг 2: Обмен code на токены"""
-    code = request.GET.get('code')
-    returned_state = request.GET.get('state')
-    saved_state = request.session.get('ozon_oauth_state')
-    
-    if not code:
-        return HttpResponse(f"❌ Нет code. Параметры: {request.GET.dict()}", status=400)
-    
-    if returned_state != saved_state:
-        return HttpResponse("❌ Ошибка безопасности: несовпадение state", status=403)
+    try:
+        code = request.GET.get('code')
+        returned_state = request.GET.get('state')
+        saved_state = request.session.get('ozon_oauth_state')
         
-    if 'ozon_oauth_state' in request.session:
-        del request.session['ozon_oauth_state']
-
-    # ✅ Формируем payload для form-urlencoded
-    payload = {
-        "grant_type": "authorization_code",
-        "client_id": settings.OZON_OAUTH_CLIENT_ID,
-        "client_secret": settings.OZON_OAUTH_CLIENT_SECRET,
-        "code": code,
-        "redirect_uri": settings.OZON_OAUTH_REDIRECT_URI
-    }
-
-    # ✅ ВАЖНО: Content-Type для OAuth token exchange
-    headers = {
-        "Content-Type": "application/x-www-form-urlencoded",
-        "User-Agent": "Mozilla/5.0 (compatible; PBShopBot/1.0)"
-    }
-
-    # ✅ ВАЖНО: используем data=, а не json=
-    response = requests.post(OZON_TOKEN_URL, data=payload, headers=headers, timeout=15)
-    
-    if response.status_code == 200:
-        data = response.json()
+        if not code:
+            return HttpResponse(f"❌ Нет code. Параметры: {request.GET.dict()}", status=400)
         
-        OzonAuth.objects.update_or_create(
-            is_active=True,
-            defaults={
-                'access_token': data['access_token'],
-                'refresh_token': data.get('refresh_token', ''),
-                'expires_at': timezone.now() + timedelta(seconds=data.get('expires_in', 3600))
-            }
-        )
+        if returned_state != saved_state:
+            return HttpResponse(
+                f"❌ Ошибка state.<br>Получен: {returned_state}<br>Ожидался: {saved_state}", 
+                status=403
+            )
+            
+        if 'ozon_oauth_state' in request.session:
+            del request.session['ozon_oauth_state']
+
+        payload = {
+            "grant_type": "authorization_code",
+            "client_id": settings.OZON_OAUTH_CLIENT_ID,
+            "client_secret": settings.OZON_OAUTH_CLIENT_SECRET,
+            "code": code,
+            "redirect_uri": settings.OZON_OAUTH_REDIRECT_URI
+        }
+
+        headers = {
+            "Content-Type": "application/x-www-form-urlencoded",
+            "User-Agent": "Mozilla/5.0 (compatible; PBShopBot/1.0)"
+        }
+
+        response = requests.post(OZON_TOKEN_URL, data=payload, headers=headers, timeout=15)
+        
+        if response.status_code == 200:
+            data = response.json()
+            
+            OzonAuth.objects.update_or_create(
+                is_active=True,
+                defaults={
+                    'access_token': data['access_token'],
+                    'refresh_token': data.get('refresh_token', ''),
+                    'expires_at': timezone.now() + timedelta(seconds=data.get('expires_in', 3600))
+                }
+            )
+            return HttpResponse(
+                "<h1>✅ Авторизация Ozon Delivery прошла успешно!</h1>"
+                f"<p>Токен: {data['access_token'][:30]}...</p>"
+            )
+        else:
+            logger.error(f"Token exchange failed: {response.status_code} - {response.text}")
+            return HttpResponse(
+                f"❌ Ozon вернул ошибку:<br>"
+                f"Status: {response.status_code}<br>"
+                f"Body: <pre>{response.text}</pre>", 
+                status=400
+            )
+    except Exception as e:
+        # 🔥 Показываем реальную причину 500 прямо в браузере
+        import traceback
+        tb = traceback.format_exc()
+        logger.error(f"CRITICAL ERROR in callback: {tb}")
         return HttpResponse(
-            "<h1>✅ Авторизация Ozon Delivery прошла успешно!</h1>"
-            "<p>Токены сохранены. Можно тестировать методы доставки.</p>"
-        )
-    else:
-        logger.error(f"Token exchange failed: {response.status_code} - {response.text}")
-        return HttpResponse(
-            f"❌ Ошибка получения токена:<br>"
-            f"Status: {response.status_code}<br>"
-            f"Body: <pre>{response.text}</pre>", 
-            status=400
+            f"<h1>❌ Внутренняя ошибка</h1>"
+            f"<pre>{tb}</pre>",
+            status=500
         )
