@@ -46,7 +46,7 @@ def ozon_oauth_login(request):
 
 
 def ozon_oauth_callback(request):
-    """Шаг 2: Обмен code на токены"""
+    """Шаг 2: Обмен code на токены с полной диагностикой"""
     try:
         code = request.GET.get('code')
         returned_state = request.GET.get('state')
@@ -77,6 +77,8 @@ def ozon_oauth_callback(request):
             "User-Agent": "Mozilla/5.0 (compatible; PBShopBot/1.0)"
         }
 
+        # Убедитесь, что эта константа определена в начале файла:
+        # OZON_TOKEN_URL = "https://xapi.ozon.ru/oauth/token"
         response = requests.post(OZON_TOKEN_URL, data=payload, headers=headers, timeout=15)
         
         if response.status_code == 200:
@@ -92,7 +94,7 @@ def ozon_oauth_callback(request):
             )
             return HttpResponse(
                 "<h1>✅ Авторизация Ozon Delivery прошла успешно!</h1>"
-                f"<p>Токен: {data['access_token'][:30]}...</p>"
+                f"<p>Токен получен: {data['access_token'][:30]}...</p>"
             )
         else:
             logger.error(f"Token exchange failed: {response.status_code} - {response.text}")
@@ -102,13 +104,15 @@ def ozon_oauth_callback(request):
                 f"Body: <pre>{response.text}</pre>", 
                 status=400
             )
+            
     except Exception as e:
-        # 🔥 Показываем реальную причину 500 прямо в браузере
+        # 🔥 ЭТОТ БЛОК ПОКАЖЕТ ТОЧНУЮ ПРИЧИНУ 500 ОШИБКИ ПРЯМО В БРАУЗЕРЕ
         import traceback
         tb = traceback.format_exc()
-        logger.error(f"CRITICAL ERROR in callback: {tb}")
+        logger.error(f"CRITICAL ERROR in ozon_oauth_callback: {tb}")
         return HttpResponse(
-            f"<h1>❌ Внутренняя ошибка</h1>"
-            f"<pre>{tb}</pre>",
+            f"<h1>❌ Внутренняя ошибка сервера</h1>"
+            f"<p>Точная причина:</p>"
+            f"<pre style='background:#f4f4f4; padding:15px; border:1px solid #ccc;'>{tb}</pre>",
             status=500
         )
