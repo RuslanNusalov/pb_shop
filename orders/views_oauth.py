@@ -72,47 +72,56 @@ def ozon_oauth_callback(request):
             "redirect_uri": settings.OZON_OAUTH_REDIRECT_URI
         }
 
-        headers = {
-            "Content-Type": "application/x-www-form-urlencoded",
+        # ✅ ВАРИАНТ 1: JSON вместо form-urlencoded
+        headers_json = {
+            "Content-Type": "application/json",
             "User-Agent": "Mozilla/5.0 (compatible; PBShopBot/1.0)"
         }
-
-        # Убедитесь, что эта константа определена в начале файла:
-        # OZON_TOKEN_URL = "https://xapi.ozon.ru/oauth/token"
-        response = requests.post(OZON_TOKEN_URL, data=payload, headers=headers, timeout=15)
+        response = requests.post(OZON_TOKEN_URL, json=payload, headers=headers_json, timeout=15)
         
+        # 🔍 Собираем ВСЮ информацию об ответе
+        debug_info = (
+            f"<h2>🔍 Диагностика ответа от {OZON_TOKEN_URL}</h2>"
+            f"<p><b>Статус:</b> {response.status_code}</p>"
+            f"<p><b>Заголовки:</b><pre>{dict(response.headers)}</pre></p>"
+            f"<p><b>Тело ответа (raw):</b><pre>{response.text[:2000]}</pre></p>"
+            f"<hr>"
+        )
+        
+        # Если JSON — парсим и сохраняем
         if response.status_code == 200:
-            data = response.json()
-            
-            OzonAuth.objects.update_or_create(
-                is_active=True,
-                defaults={
-                    'access_token': data['access_token'],
-                    'refresh_token': data.get('refresh_token', ''),
-                    'expires_at': timezone.now() + timedelta(seconds=data.get('expires_in', 3600))
-                }
-            )
-            return HttpResponse(
-                "<h1>✅ Авторизация Ozon Delivery прошла успешно!</h1>"
-                f"<p>Токен получен: {data['access_token'][:30]}...</p>"
-            )
+            try:
+                data = response.json()
+                OzonAuth.objects.update_or_create(
+                    is_active=True,
+                    defaults={
+                        'access_token': data['access_token'],
+                        'refresh_token': data.get('refresh_token', ''),
+                        'expires_at': timezone.now() + timedelta(seconds=data.get('expires_in', 3600))
+                    }
+                )
+                return HttpResponse(
+                    debug_info + 
+                    "<h1>✅ Авторизация прошла успешно!</h1>"
+                    f"<p>Токен: {data['access_token'][:30]}...</p>"
+                )
+            except ValueError:
+                return HttpResponse(
+                    debug_info + 
+                    "<h1>⚠️ Ответ 200, но это НЕ JSON</h1>"
+                    "<p>См. raw тело выше. Нужен другой формат запроса.</p>"
+                )
         else:
-            logger.error(f"Token exchange failed: {response.status_code} - {response.text}")
             return HttpResponse(
-                f"❌ Ozon вернул ошибку:<br>"
-                f"Status: {response.status_code}<br>"
-                f"Body: <pre>{response.text}</pre>", 
-                status=400
+                debug_info + 
+                f"<h1>❌ Ozon вернул ошибку: {response.status_code}</h1>"
             )
             
     except Exception as e:
-        # 🔥 ЭТОТ БЛОК ПОКАЖЕТ ТОЧНУЮ ПРИЧИНУ 500 ОШИБКИ ПРЯМО В БРАУЗЕРЕ
         import traceback
         tb = traceback.format_exc()
-        logger.error(f"CRITICAL ERROR in ozon_oauth_callback: {tb}")
+        logger.error(f"CRITICAL ERROR: {tb}")
         return HttpResponse(
-            f"<h1>❌ Внутренняя ошибка сервера</h1>"
-            f"<p>Точная причина:</p>"
-            f"<pre style='background:#f4f4f4; padding:15px; border:1px solid #ccc;'>{tb}</pre>",
+            f"<h1>❌ Внутренняя ошибка</h1><pre>{tb}</pre>",
             status=500
         )
