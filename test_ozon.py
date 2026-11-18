@@ -1,4 +1,5 @@
 import os
+
 import django
 
 # Настраиваем окружение Django
@@ -14,7 +15,7 @@ redirect_uri = getattr(settings, 'OZON_OAUTH_REDIRECT_URI', '')
 
 # ВАЖНО: Вставьте сюда СВЕЖИЙ код из URL после нажатия "Разрешить" в Ozon!
 # Старый код уже не работает (живет 5-10 минут).
-code="c29b4eee-25e5-4a28-9543-f6900433195f&state=isE-PTlq4IWhwxWEc-6dyg"
+code="30e214c3-0e42-476e-bbce-c282c3f0e73c&state=FAnBLjO50PWMl5E4EdzeFg"
 
 payload = {
     "grant_type": "authorization_code",

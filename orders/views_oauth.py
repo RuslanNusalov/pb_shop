@@ -13,12 +13,12 @@ from .models import OzonAuth
 
 logger = logging.getLogger(__name__)
 
-# ✅ ПРАВИЛЬНЫЕ URL (из официальной документации Ozon)
+# ✅ ЕДИНСТВЕННЫЙ РАБОЧИЙ URL ДЛЯ ПОЛУЧЕНИЯ ТОКЕНА
 OZON_AUTHORIZE_URL = "https://seller.ozon.ru/app/appstore/oauth/authorize"
-OZON_TOKEN_URL = "https://xapi.ozon.ru/oauth/token"  # ← ВОТ ГЛАВНОЕ ИСПРАВЛЕНИЕ!
+OZON_TOKEN_URL = "https://xapi.ozon.ru/oauth/token"
 
 def ozon_oauth_login(request):
-    """Шаг 1: Формируем ссылку авторизации строго по документации Ozon"""
+    """Шаг 1: Формируем ссылку авторизации"""
     client_id = settings.OZON_OAUTH_CLIENT_ID
     redirect_uri = settings.OZON_OAUTH_REDIRECT_URI
     
@@ -46,7 +46,7 @@ def ozon_oauth_login(request):
 
 
 def ozon_oauth_callback(request):
-    """Шаг 2: Ozon возвращает code и state, меняем code на токены"""
+    """Шаг 2: Обмен code на токены"""
     code = request.GET.get('code')
     returned_state = request.GET.get('state')
     saved_state = request.session.get('ozon_oauth_state')
@@ -60,7 +60,7 @@ def ozon_oauth_callback(request):
     if 'ozon_oauth_state' in request.session:
         del request.session['ozon_oauth_state']
 
-    # ✅ Правильный payload для xapi.ozon.ru
+    # ✅ Формируем payload для form-urlencoded
     payload = {
         "grant_type": "authorization_code",
         "client_id": settings.OZON_OAUTH_CLIENT_ID,
@@ -69,13 +69,14 @@ def ozon_oauth_callback(request):
         "redirect_uri": settings.OZON_OAUTH_REDIRECT_URI
     }
 
+    # ✅ ВАЖНО: Content-Type для OAuth token exchange
     headers = {
-        "Content-Type": "application/json",
-        "User-Agent": "Mozilla/5.0 (compatible; PBShopBot/1.0; +https://spbpb.ru)"
+        "Content-Type": "application/x-www-form-urlencoded",
+        "User-Agent": "Mozilla/5.0 (compatible; PBShopBot/1.0)"
     }
 
-    # ✅ Запрос на правильный домен xapi.ozon.ru
-    response = requests.post(OZON_TOKEN_URL, json=payload, headers=headers, timeout=15)
+    # ✅ ВАЖНО: используем data=, а не json=
+    response = requests.post(OZON_TOKEN_URL, data=payload, headers=headers, timeout=15)
     
     if response.status_code == 200:
         data = response.json()
