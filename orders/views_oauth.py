@@ -25,8 +25,7 @@ def ozon_oauth_login(request):
     state = secrets.token_urlsafe(16)
     request.session['ozon_oauth_state'] = state
     
-    scope = "seller-api.ozon-logistics"
-    #"seller-api.posting-fbs seller-api.product seller-api.returns seller-api.report seller-api.posting-fbo"
+    scope = "seller-api.ozon-logistics seller-api.posting-fbs seller-api.product seller-api.returns seller-api.report seller-api.posting-fbo"
     
     encoded_redirect_uri = quote(redirect_uri, safe='')
     encoded_scope = quote(scope, safe='')
@@ -39,14 +38,10 @@ def ozon_oauth_login(request):
         f"redirect_uri={encoded_redirect_uri}&"
         f"scope={encoded_scope}&"
         f"state={state}&"
-        #f"prompt=select_company"
+        f"prompt=consent"  # ← КЛЮЧЕВОЕ: принудительно показать страницу согласия
     )
     
-    # ✅ logger.warning — гарантированно попадёт в app.log Amvera
-    logger.warning(f"OZON_OAUTH_REDIRECT_URI = {redirect_uri}")
-    logger.warning(f"OZON_OAUTH_CLIENT_ID = {client_id}")
     logger.warning(f"OAuth redirect to: {auth_url}")
-    
     return redirect(auth_url)
 
 
