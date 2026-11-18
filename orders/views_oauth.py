@@ -25,7 +25,8 @@ def ozon_oauth_login(request):
     state = secrets.token_urlsafe(16)
     request.session['ozon_oauth_state'] = state
     
-    scope = "seller-api.ozon-logistics seller-api.posting-fbs seller-api.product seller-api.returns seller-api.report seller-api.posting-fbo"
+    scope = "seller-api.ozon-logistics"
+    #"seller-api.posting-fbs seller-api.product seller-api.returns seller-api.report seller-api.posting-fbo"
     
     encoded_redirect_uri = quote(redirect_uri, safe='')
     encoded_scope = quote(scope, safe='')
@@ -38,7 +39,7 @@ def ozon_oauth_login(request):
         f"redirect_uri={encoded_redirect_uri}&"
         f"scope={encoded_scope}&"
         f"state={state}&"
-        f"prompt=select_company"
+        #f"prompt=select_company"
     )
     
     # ✅ logger.warning — гарантированно попадёт в app.log Amvera
