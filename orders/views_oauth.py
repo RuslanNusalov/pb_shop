@@ -90,27 +90,25 @@ def ozon_oauth_callback(request):
         
         # Если JSON — парсим и сохраняем
         if response.status_code == 200:
-            try:
-                data = response.json()
-                OzonAuth.objects.update_or_create(
-                    is_active=True,
-                    defaults={
-                        'access_token': data['access_token'],
-                        'refresh_token': data.get('refresh_token', ''),
-                        'expires_at': timezone.now() + timedelta(seconds=data.get('expires_in', 3600))
-                    }
-                )
-                return HttpResponse(
-                    debug_info + 
-                    "<h1>✅ Авторизация прошла успешно!</h1>"
-                    f"<p>Токен: {data['access_token'][:30]}...</p>"
-                )
-            except ValueError:
-                return HttpResponse(
-                    debug_info + 
-                    "<h1>⚠️ Ответ 200, но это НЕ JSON</h1>"
-                    "<p>См. raw тело выше. Нужен другой формат запроса.</p>"
-                )
+            data = response.json()
+            
+            # ✅ Безопасное приведение expires_in к int (Ozon может вернуть строку!)
+            expires_in = int(data.get('expires_in', 3600))
+            
+            OzonAuth.objects.update_or_create(
+                is_active=True,
+                defaults={
+                    'access_token': data['access_token'],
+                    'refresh_token': data.get('refresh_token', ''),
+                    'expires_at': timezone.now() + timedelta(seconds=expires_in)
+                }
+            )
+            return HttpResponse(
+                "<h1>✅ Авторизация Ozon Delivery прошла успешно!</h1>"
+                f"<p>Токен: {data['access_token'][:30]}...</p>"
+                f"<p>Refresh: {data.get('refresh_token', '')[:30]}...</p>"
+                f"<p>Истекает через: {expires_in} секунд</p>"
+            )
         else:
             return HttpResponse(
                 debug_info + 
