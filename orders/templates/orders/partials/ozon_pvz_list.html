@@ -1,0 +1,25 @@
+{% if not pvz_list %}
+    <p class="text-gray-500 text-sm text-center py-4">ПВЗ не найдены. Попробуйте другой город.</p>
+{% else %}
+    <div class="space-y-2 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
+        {% for pvz in pvz_list %}
+            <label class="flex items-start p-3 border border-gray-200 rounded-sm cursor-pointer hover:border-black transition has-[:checked]:border-black has-[:checked]:bg-gray-50">
+                <input type="radio" 
+                       name="ozon_point_radio" 
+                       value="{{ pvz.map_point_id }}" 
+                       class="mt-1 mr-3 h-4 w-4 text-black border-black"
+                       hx-get="{% url 'orders:ozon_delivery_checkout' %}"
+                       hx-target="#ozon-delivery-cost-block"
+                       hx-swap="innerHTML"
+                       hx-vals='js:{
+                           "map_point_id": "{{ pvz.map_point_id }}",
+                           "phone": document.querySelector("input[name=phone]").value.replace(/\D/g, "")
+                       }'>
+                <div class="text-sm">
+                    <div class="font-medium text-black">{{ pvz.name|default:"ПВЗ Ozon" }}</div>
+                    <div class="text-gray-600 text-xs">{{ pvz.address }}</div>
+                </div>
+            </label>
+        {% endfor %}
+    </div>
+{% endif %}
