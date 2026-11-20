@@ -360,7 +360,7 @@ import time
 
 import requests as req
 from django.http import JsonResponse
-from django.utils import timezone  # <-- ДОБАВЛЕНО
+from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET
 
@@ -384,7 +384,7 @@ def ozon_debug(request):
     
     lat, lon = float(geo.json()[0]['lat']), float(geo.json()[0]['lon'])
     
-    # 2. OAuth и полный цикл получения + сохранения
+    # 2. Полный цикл
     try:
         from orders.models import OzonAuth, OzonPVZ
         from orders.ozon_client import OzonDeliveryClient
@@ -409,20 +409,27 @@ def ozon_debug(request):
             all_point_ids.extend([str(pid) for pid in cluster.get('map_point_ids', [])])
         
         results['total_point_ids_found'] = len(all_point_ids)
-        all_point_ids = all_point_ids[:200] # Ограничиваем как в основном коде
+        all_point_ids = all_point_ids[:200] # Ограничиваем
         
         all_details = []
+        first_batch_raw_response = None # <-- НОВОЕ: ловим сырой ответ
+        
         for i in range(0, len(all_point_ids), 100):
             batch = all_point_ids[i:i+100]
             info_response = client.get_pvz_info(batch)
+            
+            if i == 0:
+                first_batch_raw_response = info_response # <-- Сохраняем ответ первой пачки
+                
             if 'error' not in info_response:
                 all_details.extend(info_response.get('points', []))
             if i + 100 < len(all_point_ids):
                 time.sleep(0.2)
                 
         results['details_fetched_count'] = len(all_details)
+        results['first_batch_raw_response'] = first_batch_raw_response # <-- Добавляем в вывод
         
-        # 3. Тест сохранения в БД (попробуем сохранить первую точку)
+        # 3. Тест сохранения
         if all_details:
             test_point = all_details[0]
             dm = test_point.get('delivery_method', {})
