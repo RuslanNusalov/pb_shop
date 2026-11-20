@@ -40,7 +40,7 @@ class OzonDeliveryClient:
         """Получает активный OAuth токен, обновляет если истекает"""
         auth_record = OzonAuth.objects.filter(is_active=True).first()
         if not auth_record:
-            raise Exception("Ozon OAuth не выполнен. Пройдите /orders/ozon/oauth/login/")
+            raise RuntimeError("Ozon OAuth не выполнен. Пройдите /orders/ozon/oauth/login/")
         if auth_record.expires_at < timezone.now() + timedelta(minutes=5):
             self._refresh_token(auth_record)
             auth_record = OzonAuth.objects.filter(is_active=True).first()
@@ -67,7 +67,7 @@ class OzonDeliveryClient:
             auth_record.expires_at = timezone.now() + timedelta(seconds=int(data.get('expires_in', 3600)))
             auth_record.save()
         else:
-            raise Exception(f"Не удалось обновить токен Ozon: {response.text}")
+            raise RuntimeError(f"Не удалось обновить токен Ozon: {response.text}")
 
     def _make_request(self, endpoint, payload, auth='oauth'):
         """

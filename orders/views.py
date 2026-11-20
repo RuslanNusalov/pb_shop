@@ -226,9 +226,9 @@ def ozon_pvz_list(request):
         
         lat = float(geo_data[0]['lat'])
         lon = float(geo_data[0]['lon'])
-    except Exception as e:
+    except (requests.RequestException, ValueError, KeyError) as e:
         logger.error(f"Ошибка геокодинга: {e}")
-        return HttpResponse("<p class='text-red-500 text-sm text-center py-4'>Ошибка определения координат города</p>")
+        return HttpResponse("<p class='text-red-500 text-sm text-center py-4'>Ошибка определения координат</p>")
     
     # 3. Формируем viewport (~50 км вокруг центра города)
     delta = 0.45
