@@ -323,7 +323,7 @@ def ozon_delivery_checkout(request):
         delivery_schema="MIX"
     )
     
-    # Извлекаем стоимость и сроки доставки из ответа
+    # Извлекаем стоимость и сроки из ответа
     cost = None
     delivery_time = None
     error_msg = None
