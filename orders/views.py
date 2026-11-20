@@ -351,3 +351,67 @@ def ozon_delivery_checkout(request):
     }
     
     return render(request, 'orders/partials/ozon_delivery_cost.html', context)
+
+
+# ==========================================
+# ВРЕМЕННЫЙ DEBUG VIEW (УДАЛИТЬ ПОСЛЕ ДИАГНОСТИКИ!)
+# ==========================================
+import requests as req
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+
+
+@csrf_exempt
+@require_GET
+def ozon_debug(request):
+    """Временный endpoint для диагностики Ozon API. УДАЛИТЬ ПОСЛЕ ИСПРАВЛЕНИЯ!"""
+    results = {}
+    
+    # Тест 1: Геокодинг
+    try:
+        geo = req.get("https://nominatim.openstreetmap.org/search", 
+                      params={"format": "json", "q": "Санкт-Петербург", "limit": 1},
+                      headers={"User-Agent": "PBShopBot/1.0"}, timeout=10)
+        results['geocoding'] = geo.json()
+    except Exception as e:
+        results['geocoding'] = {'error': str(e)}
+    
+    # Тест 2: OAuth токен
+    try:
+        from orders.models import OzonAuth
+        auth = OzonAuth.objects.filter(is_active=True).first()
+        results['oauth'] = {
+            'token_exists': auth is not None,
+            'expires_at': str(auth.expires_at) if auth else None,
+            'is_expired': auth.expires_at < timezone.now() if auth else None
+        }
+    except Exception as e:
+        results['oauth'] = {'error': str(e)}
+    
+    # Тест 3: Получение кластеров
+    try:
+        from orders.ozon_client import OzonDeliveryClient
+        client = OzonDeliveryClient()
+        viewport = {
+            "left_bottom": {"lat": 59.5, "long": 30.0},
+            "right_top": {"lat": 60.2, "long": 30.8}
+        }
+        clusters = client.get_pvz_clusters(viewport, zoom=10)
+        results['clusters'] = {
+            'count': len(clusters.get('clusters', [])),
+            'error': clusters.get('error')
+        }
+    except Exception as e:
+        results['clusters'] = {'error': str(e)}
+    
+    # Тест 4: Кэш ПВЗ
+    try:
+        from orders.models import OzonPVZ
+        results['cache'] = {
+            'spb_count': OzonPVZ.objects.filter(city__icontains='Санкт').count(),
+            'total_count': OzonPVZ.objects.count()
+        }
+    except Exception as e:
+        results['cache'] = {'error': str(e)}
+    
+    return JsonResponse(results, json_dumps_params={'ensure_ascii': False, 'indent': 2})
