@@ -356,62 +356,99 @@ def ozon_delivery_checkout(request):
 # ==========================================
 # ВРЕМЕННЫЙ DEBUG VIEW (УДАЛИТЬ ПОСЛЕ ДИАГНОСТИКИ!)
 # ==========================================
+import time
+
 import requests as req
 from django.http import JsonResponse
+from django.utils import timezone  # <-- ДОБАВЛЕНО
 from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_GET
 
 
 @csrf_exempt
 @require_GET
 def ozon_debug(request):
-    """Временный endpoint для диагностики Ozon API. УДАЛИТЬ ПОСЛЕ ИСПРАВЛЕНИЯ!"""
     results = {}
+    city = "Санкт-Петербург"
+    results['city_searched'] = city
     
-    # Тест 1: Геокодинг
+    # 1. Геокодинг
     try:
         geo = req.get("https://nominatim.openstreetmap.org/search", 
-                      params={"format": "json", "q": "Санкт-Петербург", "limit": 1},
+                      params={"format": "json", "q": city, "limit": 1},
                       headers={"User-Agent": "PBShopBot/1.0"}, timeout=10)
-        results['geocoding'] = geo.json()
+        results['geocoding'] = {'success': True, 'lat': geo.json()[0]['lat'], 'lon': geo.json()[0]['lon']}
     except Exception as e:
         results['geocoding'] = {'error': str(e)}
+        return JsonResponse(results, json_dumps_params={'ensure_ascii': False, 'indent': 2})
     
-    # Тест 2: OAuth токен
+    lat, lon = float(geo.json()[0]['lat']), float(geo.json()[0]['lon'])
+    
+    # 2. OAuth и полный цикл получения + сохранения
     try:
-        from orders.models import OzonAuth
+        from orders.models import OzonAuth, OzonPVZ
+        from orders.ozon_client import OzonDeliveryClient
+        
         auth = OzonAuth.objects.filter(is_active=True).first()
         results['oauth'] = {
             'token_exists': auth is not None,
-            'expires_at': str(auth.expires_at) if auth else None,
-            'is_expired': auth.expires_at < timezone.now() if auth else None
+            'is_valid': auth.expires_at > timezone.now() if auth else False
         }
-    except Exception as e:
-        results['oauth'] = {'error': str(e)}
-    
-    # Тест 3: Получение кластеров
-    try:
-        from orders.ozon_client import OzonDeliveryClient
+        
         client = OzonDeliveryClient()
         viewport = {
-            "left_bottom": {"lat": 59.5, "long": 30.0},
-            "right_top": {"lat": 60.2, "long": 30.8}
+            "left_bottom": {"lat": lat - 0.45, "long": lon - 0.45},
+            "right_top": {"lat": lat + 0.45, "long": lon + 0.45}
         }
+        
         clusters = client.get_pvz_clusters(viewport, zoom=10)
-        results['clusters'] = {
-            'count': len(clusters.get('clusters', [])),
-            'error': clusters.get('error')
-        }
+        results['clusters_count'] = len(clusters.get('clusters', []))
+        
+        all_point_ids = []
+        for cluster in clusters.get('clusters', []):
+            all_point_ids.extend([str(pid) for pid in cluster.get('map_point_ids', [])])
+        
+        results['total_point_ids_found'] = len(all_point_ids)
+        all_point_ids = all_point_ids[:200] # Ограничиваем как в основном коде
+        
+        all_details = []
+        for i in range(0, len(all_point_ids), 100):
+            batch = all_point_ids[i:i+100]
+            info_response = client.get_pvz_info(batch)
+            if 'error' not in info_response:
+                all_details.extend(info_response.get('points', []))
+            if i + 100 < len(all_point_ids):
+                time.sleep(0.2)
+                
+        results['details_fetched_count'] = len(all_details)
+        
+        # 3. Тест сохранения в БД (попробуем сохранить первую точку)
+        if all_details:
+            test_point = all_details[0]
+            dm = test_point.get('delivery_method', {})
+            addr = dm.get('address_details', {})
+            coord = dm.get('coordinates', {})
+            
+            try:
+                obj, created = OzonPVZ.objects.update_or_create(
+                    map_point_id=test_point.get('map_point_id'),
+                    defaults={
+                        'name': dm.get('name', ''),
+                        'address': dm.get('address', ''),
+                        'city': addr.get('city', city),
+                        'region': addr.get('region', ''),
+                        'lat': coord.get('lat'),
+                        'lng': coord.get('long'),
+                        'enabled': test_point.get('enabled', True),
+                    }
+                )
+                results['db_save_test'] = {'success': True, 'created': created, 'saved_name': dm.get('name')}
+            except Exception as db_e:
+                results['db_save_test'] = {'error': str(db_e)}
+        else:
+            results['db_save_test'] = 'Нет данных для сохранения (all_details пуст)'
+            
     except Exception as e:
-        results['clusters'] = {'error': str(e)}
-    
-    # Тест 4: Кэш ПВЗ
-    try:
-        from orders.models import OzonPVZ
-        results['cache'] = {
-            'spb_count': OzonPVZ.objects.filter(city__icontains='Санкт').count(),
-            'total_count': OzonPVZ.objects.count()
-        }
-    except Exception as e:
-        results['cache'] = {'error': str(e)}
-    
+        results['full_flow_error'] = str(e)
+
     return JsonResponse(results, json_dumps_params={'ensure_ascii': False, 'indent': 2})
