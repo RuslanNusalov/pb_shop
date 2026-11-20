@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import views_oauth
+from . import views, views_oauth
 from .views import CheckoutView, OrderDetailView, cancel_order, order_history
 
 app_name = 'orders'
@@ -14,4 +14,7 @@ urlpatterns = [
     # Ozon OAuth маршруты
     path('ozon/oauth/login/', views_oauth.ozon_oauth_login, name='ozon_oauth_login'),
     path('ozon/oauth/callback/', views_oauth.ozon_oauth_callback, name='ozon_oauth_callback'),
+        # Ozon HTMX маршруты
+    path('ozon/pvz/', views.ozon_pvz_list, name='ozon_pvz_list'),
+    path('ozon/checkout/', views.ozon_delivery_checkout, name='ozon_delivery_checkout'),
 ]

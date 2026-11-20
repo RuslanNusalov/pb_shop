@@ -1,6 +1,9 @@
 import logging
+import time
 from decimal import Decimal
 
+import requests
+from django.conf import settings
 from django.contrib import messages  # ✅ ДОБАВЛЕНО
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -14,8 +17,9 @@ from django.shortcuts import (  # ✅ ДОБАВЛЕНО get_object_or_404
     render,
 )
 from django.template.response import TemplateResponse
-from django.urls import reverse, reverse_lazy  # ✅ ДОБАВЛЕНО reverse_lazy
+from django.urls import reverse_lazy  # ✅ ДОБАВЛЕНО reverse_lazy
 from django.utils.decorators import method_decorator
+from django.views.decorators.http import require_GET
 from django.views.generic import DetailView, View
 
 from cart.models import PromoCode
@@ -24,9 +28,13 @@ from main.mixins import WishlistContextMixin
 from main.models import ProductSize
 
 from .forms import OrderForm
-from .models import Order, OrderItem
+from .models import Order, OrderItem, OzonPVZ
+from .ozon_client import OzonDeliveryClient
 
 logger = logging.getLogger(__name__)
+
+OZON_TEST_WAREHOUSE_ID = getattr(settings, 'OZON_TEST_WAREHOUSE_ID', '')
+OZON_TEST_OFFER_ID = getattr(settings, 'OZON_TEST_OFFER_ID', '')
 
 
 @method_decorator(login_required(login_url=reverse_lazy('users:login')), name='dispatch') # ✅ Используем reverse_lazy
@@ -183,3 +191,163 @@ def cancel_order(request, order_id):
         messages.error(request, 'Этот заказ нельзя отменить')
     
     return redirect('orders:order_detail', order_id=order.id)
+
+@require_GET
+def ozon_pvz_list(request):
+    """Список ПВЗ для города: кэш → Ozon API через /v1/delivery/map"""
+    city = request.GET.get('city', '').strip()
+    
+    if not city or len(city) < 2:
+        return HttpResponse("<p class='text-gray-500 text-sm text-center py-4'>Введите название города (мин. 2 символа)</p>")
+    
+    # 1. Проверяем локальный кэш
+    cached_pvz = OzonPVZ.objects.filter(
+        city__icontains=city,
+        enabled=True
+    ).order_by('name')[:50]
+    
+    if cached_pvz.exists():
+        return render(request, 'orders/partials/ozon_pvz_list.html', {
+            'pvz_list': cached_pvz,
+            'from_cache': True
+        })
+    
+    # 2. Кэша нет — получаем координаты города через Nominatim (бесплатно)
+    try:
+        geo_response = requests.get(
+            "https://nominatim.openstreetmap.org/search",
+            params={"format": "json", "q": city, "limit": 1},
+            headers={"User-Agent": "PBShopBot/1.0 (spbpb.ru)"},
+            timeout=10
+        )
+        geo_data = geo_response.json()
+        if not geo_data:
+            return HttpResponse(f"<p class='text-red-500 text-sm text-center py-4'>Город '{city}' не найден</p>")
+        
+        lat = float(geo_data[0]['lat'])
+        lon = float(geo_data[0]['lon'])
+    except Exception as e:
+        logger.error(f"Ошибка геокодинга: {e}")
+        return HttpResponse("<p class='text-red-500 text-sm text-center py-4'>Ошибка определения координат города</p>")
+    
+    # 3. Формируем viewport (~50 км вокруг центра города)
+    delta = 0.45
+    viewport = {
+        "left_bottom": {"lat": lat - delta, "long": lon - delta},
+        "right_top": {"lat": lat + delta, "long": lon + delta}
+    }
+    
+    # 4. Получаем кластеры точек через /v1/delivery/map (требует OAuth!)
+    client = OzonDeliveryClient()
+    clusters_response = client.get_pvz_clusters(viewport, zoom=10)
+    
+    if 'error' in clusters_response:
+        return HttpResponse(
+            f"<p class='text-red-500 text-sm text-center py-4'>Ошибка загрузки ПВЗ: {clusters_response['error']}</p>"
+        )
+    
+    clusters = clusters_response.get('clusters', [])
+    
+    # 5. Собираем все map_point_ids из кластеров
+    all_point_ids = []
+    for cluster in clusters:
+        all_point_ids.extend([str(pid) for pid in cluster.get('map_point_ids', [])])
+    
+    if not all_point_ids:
+        return HttpResponse(f"<p class='text-gray-500 text-sm text-center py-4'>ПВЗ не найдены в радиусе 50 км от '{city}'</p>")
+    
+    # Ограничиваем до 200 точек для скорости
+    all_point_ids = all_point_ids[:200]
+    
+    # 6. Получаем детали точек пачками по 100 (требует Api-Key)
+    all_details = []
+    for i in range(0, len(all_point_ids), 100):
+        batch = all_point_ids[i:i+100]
+        info_response = client.get_pvz_info(batch)
+        if 'error' not in info_response:
+            all_details.extend(info_response.get('points', []))
+        if i + 100 < len(all_point_ids):
+            time.sleep(0.2)  # Пауза, чтобы не превысить лимиты API
+    
+    # 7. Сохраняем полученные точки в наш кэш
+    for point_data in all_details:
+        dm = point_data.get('delivery_method', {})
+        addr = dm.get('address_details', {})
+        coord = dm.get('coordinates', {})
+        
+        OzonPVZ.objects.update_or_create(
+            map_point_id=point_data.get('map_point_id'),
+            defaults={
+                'name': dm.get('name', ''),
+                'address': dm.get('address', ''),
+                'city': addr.get('city', city),
+                'region': addr.get('region', ''),
+                'lat': coord.get('lat'),
+                'lng': coord.get('long'),
+                'enabled': point_data.get('enabled', True),
+                'working_hours': dm.get('working_hours'),
+            }
+        )
+    
+    # 8. Возвращаем свежие данные из кэша
+    fresh_pvz = OzonPVZ.objects.filter(
+        city__icontains=city,
+        enabled=True
+    ).order_by('name')[:50]
+    
+    return render(request, 'orders/partials/ozon_pvz_list.html', {
+        'pvz_list': fresh_pvz,
+        'from_cache': False
+    })
+
+
+@require_GET
+def ozon_delivery_checkout(request):
+    """Расчёт стоимости доставки для выбранного ПВЗ"""
+    map_point_id = request.GET.get('map_point_id', '')
+    phone = request.GET.get('phone', '')
+    
+    if not phone or len(phone.replace('+', '').replace(' ', '').replace('-', '')) < 10:
+        return HttpResponse("<p class='text-red-500 text-xs font-medium'>⚠️ Введите корректный номер телефона.</p>")
+    
+    if not map_point_id:
+        return HttpResponse("<p class='text-red-500 text-xs'>Выберите пункт выдачи.</p>")
+
+    client = OzonDeliveryClient()
+    
+    response_data = client.calculate_checkout(
+        items=[{"offer_id": OZON_TEST_OFFER_ID, "quantity": 1, "sku": 0}],
+        map_point_id=map_point_id,
+        phone=phone,
+        warehouse_id=OZON_TEST_WAREHOUSE_ID,
+        delivery_schema="MIX"
+    )
+    
+    # Извлекаем стоимость и сроки из ответа
+    cost = None
+    delivery_time = None
+    error_msg = None
+    
+    if 'error' in response_data:
+        error_msg = response_data['error']
+    else:
+        splits = response_data.get('splits', [])
+        if splits:
+            split = splits[0]
+            commissions = split.get('commissions', {})
+            if commissions and commissions.get('total'):
+                cost = commissions['total'].get('amount')
+            
+            delivery_method = split.get('delivery_method', {})
+            timeslots = delivery_method.get('timeslots', [])
+            if timeslots:
+                delivery_time = "1-2 дня"  # Упрощённое отображение
+    
+    context = {
+        'cost': cost,
+        'delivery_time': delivery_time,
+        'error_msg': error_msg,
+        'map_point_id': map_point_id,
+    }
+    
+    return render(request, 'orders/partials/ozon_delivery_cost.html', context)

@@ -290,3 +290,28 @@ class OzonAuth(models.Model):
 
     def __str__(self):
         return f"Ozon Token (expires: {self.expires_at})"
+
+
+class OzonPVZ(models.Model):
+    """Кэш пунктов выдачи Ozon"""
+    map_point_id = models.BigIntegerField(unique=True, verbose_name="ID точки на карте")
+    name = models.CharField(max_length=255, blank=True, verbose_name="Название")
+    address = models.TextField(blank=True, verbose_name="Адрес")
+    city = models.CharField(max_length=100, blank=True, db_index=True, verbose_name="Город")
+    region = models.CharField(max_length=100, blank=True, verbose_name="Регион")
+    lat = models.FloatField(null=True, blank=True, verbose_name="Широта")
+    lng = models.FloatField(null=True, blank=True, verbose_name="Долгота")
+    enabled = models.BooleanField(default=True, verbose_name="Доступен")
+    working_hours = models.JSONField(null=True, blank=True, verbose_name="Часы работы")
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'ПВЗ Ozon'
+        verbose_name_plural = 'ПВЗ Ozon'
+        indexes = [
+            models.Index(fields=['city']),
+            models.Index(fields=['map_point_id']),
+        ]
+
+    def __str__(self):
+        return f"{self.name or 'ПВЗ'} ({self.city})"
