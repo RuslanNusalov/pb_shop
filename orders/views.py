@@ -195,7 +195,7 @@ def cancel_order(request, order_id):
 @require_GET
 def ozon_pvz_list(request):
     """Список ПВЗ для города: кэш → Ozon API через /v1/delivery/map"""
-    city = request.GET.get('city', '').strip()
+    city = request.GET.get('ozon_city', '').strip()
     
     if not city or len(city) < 2:
         return HttpResponse("<p class='text-gray-500 text-sm text-center py-4'>Введите название города (мин. 2 символа)</p>")
