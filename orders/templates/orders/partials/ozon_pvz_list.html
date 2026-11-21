@@ -1,9 +1,10 @@
 {% if not pvz_list %}
-    <p class="text-gray-500 text-sm text-center py-4">ПВЗ не найдены. Попробуйте другой город.</p>
+    <p class="text-gray-500 text-sm text-center py-4">ПВЗ не найдены. Попробуйте изменить адрес.</p>
 {% else %}
-    <div class="space-y-2 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
+    <div class="space-y-2 max-h-80 overflow-y-auto pr-2 custom-scrollbar">
+        <p class="text-xs text-gray-600 mb-2">Найдено {{ pvz_list|length }} пунктов выдачи. Выберите удобный:</p>
         {% for pvz in pvz_list %}
-            <label class="flex items-start p-3 border border-gray-200 rounded-sm cursor-pointer hover:border-black transition has-[:checked]:border-black has-[:checked]:bg-gray-50">
+            <label class="flex items-start p-3 border-2 border-gray-200 rounded-sm cursor-pointer hover:border-black transition has-[:checked]:border-black has-[:checked]:bg-blue-50">
                 <input type="radio" 
                        name="ozon_point_radio" 
                        value="{{ pvz.map_point_id }}" 
@@ -13,11 +14,14 @@
                        hx-swap="innerHTML"
                        hx-vals='js:{
                            "map_point_id": "{{ pvz.map_point_id }}",
-                           "phone": document.querySelector("input[name=phone]").value.replace(/\D/g, "")
+                           "phone": document.querySelector("input[name=phone]")?.value.replace(/\D/g, "") || ""
                        }'>
-                <div class="text-sm">
-                    <div class="font-medium text-black">{{ pvz.name|default:"ПВЗ Ozon" }}</div>
-                    <div class="text-gray-600 text-xs">{{ pvz.address }}</div>
+                <div class="text-sm flex-1">
+                    <div class="font-medium text-black">{{ pvz.name|default:"Пункт выдачи Ozon" }}</div>
+                    <div class="text-gray-600 text-xs mt-1">{{ pvz.address }}</div>
+                    {% if pvz.working_hours %}
+                    <div class="text-gray-500 text-xs mt-1">🕐 Работает: {{ pvz.working_hours }}</div>
+                    {% endif %}
                 </div>
             </label>
         {% endfor %}
