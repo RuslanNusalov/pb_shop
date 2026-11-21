@@ -282,23 +282,30 @@ def ozon_pvz_list(request):
         logger.warning(f"⚠️ Нет точек для {city}")
         return HttpResponse(f"<p class='text-gray-500 text-sm text-center py-4'>ПВЗ не найдены в радиусе 50 км от '{city}'</p>")
     
-    all_point_ids = all_point_ids[:200]
+    all_point_ids = all_point_ids[:1000]
     
-    # 6. Получаем детали
+    # 6. Получаем детали пачками (максимум 10 пачек = 1000 точек)
+    import time as time_module
     all_details = []
+    max_batches = 10  # 10 пачек × 100 точек = 1000 точек максимум
+    batch_count = 0
+    
     for i in range(0, len(all_point_ids), 100):
+        if batch_count >= max_batches:
+            break
         batch = all_point_ids[i:i+100]
         info_response = client.get_pvz_info(batch)
         if 'error' not in info_response:
             points = info_response.get('points', [])
             all_details.extend(points)
-            logger.info(f"📋 Пачка {i//100 + 1}: получено {len(points)} точек")
+            logger.info(f"📋 Пачка {batch_count + 1}: получено {len(points)} точек")
         else:
-            logger.error(f"❌ Ошибка деталей: {info_response['error']}")
+            logger.warning(f"⚠️ Ошибка пачки {batch_count + 1}: {info_response.get('error')}")
+        batch_count += 1
         if i + 100 < len(all_point_ids):
-            time.sleep(0.2)
+            time_module.sleep(0.15)  # Чуть меньше пауза для скорости
     
-    logger.info(f"✅ Всего деталей: {len(all_details)}")
+    logger.info(f"✅ Всего получено деталей: {len(all_details)}")
     
     # 7. Сохраняем в кэш (map_point_id лежит внутри delivery_method!)
     saved_count = 0
