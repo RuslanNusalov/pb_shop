@@ -197,8 +197,8 @@ def ozon_pvz_list(request):
     """Список ПВЗ для города: кэш → Ozon API через /v1/delivery/map"""
     city = request.GET.get('ozon_city', '').strip()
     
-    if not city or len(city) < 2:
-        return HttpResponse("<p class='text-gray-500 text-sm text-center py-4'>Введите название города (мин. 2 символа)</p>")
+    if not city or len(city) < 3:
+        return HttpResponse("<p class='text-gray-500 text-sm text-center py-4'>Продолжите ввод названия города…</p>")
     
     # 1. Проверяем локальный кэш
     cached_pvz = OzonPVZ.objects.filter(

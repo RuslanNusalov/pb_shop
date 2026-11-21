@@ -80,13 +80,14 @@
                         <div id="ozon-delivery-block" class="space-y-4 pt-4 border-t border-gray-100">
                             <div>
                                 <label for="ozon_city" class="block text-sm font-medium text-black mb-1">Город *</label>
+                                <!-- ИСПРАВЛЕНИЕ 3: Умный триггер HTMX -->
                                 <input type="text" 
                                        id="ozon_city" 
                                        name="ozon_city"
                                        placeholder="Например: Санкт-Петербург"
                                        class="w-full border border-gray-300 rounded-sm px-3 py-2 text-sm focus:outline-none focus:border-black transition-colors"
                                        hx-get="{% url 'orders:ozon_pvz_list' %}"
-                                       hx-trigger="keyup changed delay:500ms"
+                                       hx-trigger="keyup changed delay:800ms, keyup[key=='Enter'], blur"
                                        hx-target="#ozon-pvz-container"
                                        hx-swap="innerHTML"
                                        hx-indicator="#pvz-loading"
@@ -125,7 +126,8 @@
                     </div>
 
                     <!-- Shipping Address (скрыт для Ozon и Самовывоза) -->
-                    <div class="bg-white p-6 shadow-sm" id="shipping-address-block">
+                    <!-- ИСПРАВЛЕНИЕ 2: Добавлен класс hidden по умолчанию -->
+                    <div class="bg-white p-6 shadow-sm hidden" id="shipping-address-block">
                         <h2 class="text-lg font-bold text-black mb-4 tracking-wide">Адрес доставки</h2>
                         <div class="space-y-4">
                             
@@ -345,8 +347,9 @@
     </div>
 </main>
 
+<!-- ИСПРАВЛЕНИЕ 1: IIFE вместо DOMContentLoaded для совместимости с HTMX -->
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
+    (function() {
         const form = document.getElementById('order-form');
         if (!form) return;
 
@@ -460,6 +463,7 @@
         [dmOzon, dmCdek, dmPickup].forEach(r => r.addEventListener('change', updateDeliveryVisibility));
         form.addEventListener('input', validateForm);
         
+        // Запускаем сразу при инициализации скрипта
         updateDeliveryVisibility();
 
         // Авто-скролл к первой ошибке
@@ -470,7 +474,7 @@
                 errorField.scrollIntoView({ behavior: 'smooth', block: 'center' });
             }
         }
-    });
+    })();
 </script>
 
 <style>
