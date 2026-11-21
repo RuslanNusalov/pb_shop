@@ -18,6 +18,7 @@ from django.shortcuts import (  # ✅ ДОБАВЛЕНО get_object_or_404
 )
 from django.template.response import TemplateResponse
 from django.urls import reverse_lazy  # ✅ ДОБАВЛЕНО reverse_lazy
+from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.views.decorators.http import require_GET
 from django.views.generic import DetailView, View
@@ -271,23 +272,29 @@ def ozon_pvz_list(request):
     
     # 7. Сохраняем полученные точки в наш кэш
     for point_data in all_details:
-        dm = point_data.get('delivery_method', {})
-        addr = dm.get('address_details', {})
-        coord = dm.get('coordinates', {})
-        
-        OzonPVZ.objects.update_or_create(
-            map_point_id=point_data.get('map_point_id'),
-            defaults={
-                'name': dm.get('name', ''),
-                'address': dm.get('address', ''),
-                'city': addr.get('city', city),
-                'region': addr.get('region', ''),
-                'lat': coord.get('lat'),
-                'lng': coord.get('long'),
-                'enabled': point_data.get('enabled', True),
-                'working_hours': dm.get('working_hours'),
-            }
-        )
+        try:
+            mp_id = point_data.get('map_point_id')
+            if not mp_id:
+                continue
+            dm = point_data.get('delivery_method', {})
+            addr = dm.get('address_details', {})
+            coord = dm.get('coordinates', {})
+            OzonPVZ.objects.update_or_create(
+                map_point_id=mp_id,
+                defaults={
+                    'name': dm.get('name', ''),
+                    'address': dm.get('address', ''),
+                    'city': addr.get('city', city),
+                    'region': addr.get('region', ''),
+                    'lat': coord.get('lat'),
+                    'lng': coord.get('long') or coord.get('lng'),
+                    'enabled': point_data.get('enabled', True),
+                    'working_hours': dm.get('working_hours'),
+                }
+            )
+        except Exception as e:
+            logger.error(f"Ошибка сохранения ПВЗ {point_data.get('map_point_id')}: {e}")
+            continue
     
     # 8. Возвращаем свежие данные из кэша
     fresh_pvz = OzonPVZ.objects.filter(
