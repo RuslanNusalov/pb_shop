@@ -87,11 +87,10 @@
                                        placeholder="Например: Санкт-Петербург"
                                        class="w-full border border-gray-300 rounded-sm px-3 py-2 text-sm focus:outline-none focus:border-black transition-colors"
                                        hx-get="{% url 'orders:ozon_pvz_list' %}"
-                                       hx-trigger="keyup changed delay:800ms, keyup[key=='Enter'], blur"
+                                       hx-trigger="keyup changed delay:1000ms, blur, keyup[key=='Enter']"
                                        hx-target="#ozon-pvz-container"
                                        hx-swap="innerHTML"
-                                       hx-indicator="#pvz-loading"
-                                       hx-include="#ozon_city">
+                                       hx-indicator="#pvz-loading">
                             </div>
 
                             <div id="pvz-loading" class="htmx-indicator hidden text-xs text-gray-500">

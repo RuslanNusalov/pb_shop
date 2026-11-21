@@ -195,10 +195,10 @@ def cancel_order(request, order_id):
 @require_GET
 def ozon_pvz_list(request):
     """Список ПВЗ для города: кэш → Ozon API через /v1/delivery/map"""
-    city = request.GET.get('ozon_city', '').strip()
+    city = (request.GET.get('ozon_city') or request.GET.get('city') or '').strip()
     
     if not city or len(city) < 3:
-        return HttpResponse("<p class='text-gray-500 text-sm text-center py-4'>Продолжите ввод названия города…</p>")
+        return HttpResponse("<p class='text-gray-500 text-sm text-center py-4'>Введите название города полностью (от 3 букв)</p>")
     
     # 1. Проверяем локальный кэш
     cached_pvz = OzonPVZ.objects.filter(
