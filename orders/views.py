@@ -300,13 +300,15 @@ def ozon_pvz_list(request):
     
     logger.info(f"✅ Всего деталей: {len(all_details)}")
     
-    # 7. Сохраняем в кэш
+    # 7. Сохраняем в кэш (пропускаем точки без map_point_id)
     saved_count = 0
     for point_data in all_details:
         try:
             mp_id = point_data.get('map_point_id')
             if not mp_id:
+                logger.warning(f"⚠️ Пропускаем точку без map_point_id: {point_data}")
                 continue
+            
             dm = point_data.get('delivery_method', {})
             addr = dm.get('address_details', {})
             coord = dm.get('coordinates', {})
@@ -326,13 +328,30 @@ def ozon_pvz_list(request):
             )
             saved_count += 1
         except Exception as e:
-            logger.error(f"❌ Ошибка сохранения точки {mp_id}: {e}")
+            logger.error(f"❌ Ошибка сохранения точки {point_data.get('map_point_id')}: {e}")
             continue
     
     logger.info(f"💾 Сохранено в кэш: {saved_count} точек")
     
-    # 8. Возвращаем данные
-    fresh_pvz = OzonPVZ.objects.filter(city__icontains=city, enabled=True).order_by('name')[:50]
+    # 8. Возвращаем данные (ищем по региону или координатам)
+    from django.db.models import Q
+    
+    # Пробуем найти по региону (например, "Московская" для Москвы)
+    fresh_pvz = OzonPVZ.objects.filter(
+        Q(region__icontains=city) | Q(city__icontains=city),
+        enabled=True
+    ).order_by('name')[:50]
+    
+    # Если ничего не нашли по региону/городу, берём ближайшие по координатам
+    if not fresh_pvz.exists():
+        logger.info(f"⚠️ Не найдено по городу/региону, ищем по координатам")
+        # Упрощённый поиск: берём все точки в радиусе ~50 км
+        fresh_pvz = OzonPVZ.objects.filter(
+            lat__gte=lat - 0.45, lat__lte=lat + 0.45,
+            lng__gte=lon - 0.45, lng__lte=lon + 0.45,
+            enabled=True
+        ).order_by('name')[:50]
+    
     logger.info(f"🔍 Найдено в кэше после сохранения: {fresh_pvz.count()}")
     
     return render(request, 'orders/partials/ozon_pvz_list.html', {
@@ -472,19 +491,27 @@ def ozon_debug(request):
         points = info.get('points', [])
         r['first_point_city'] = points[0].get('delivery_method', {}).get('address_details', {}).get('city') if points else None
 
-        # 5. Пробуем сохранить ОДНУ точку
-        if points:
-            p = points[0]
-            dm = p.get('delivery_method', {})
-            addr = dm.get('address_details', {})
-            coord = dm.get('coordinates', {})
+    # 5. Пробуем сохранить ОДНУ точку
+    if points:
+        p = points[0]
+        dm = p.get('delivery_method', {})
+        addr = dm.get('address_details', {})
+        coord = dm.get('coordinates', {})
+        mp_id = p.get('map_point_id')
+        
+        if not mp_id:
+            r['db_save'] = {'skipped': 'no map_point_id'}
+        else:
             try:
                 obj, created = OzonPVZ.objects.update_or_create(
-                    map_point_id=p.get('map_point_id'),
+                    map_point_id=mp_id,
                     defaults={
-                        'name': dm.get('name', ''), 'address': dm.get('address', ''),
-                        'city': addr.get('city', city), 'region': addr.get('region', ''),
-                        'lat': coord.get('lat'), 'lng': coord.get('long') or coord.get('lng'),
+                        'name': dm.get('name', ''), 
+                        'address': dm.get('address', ''),
+                        'city': addr.get('city', city), 
+                        'region': addr.get('region', ''),
+                        'lat': coord.get('lat'), 
+                        'lng': coord.get('long') or coord.get('lng'),
                         'enabled': p.get('enabled', True),
                     }
                 )
