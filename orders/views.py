@@ -402,6 +402,7 @@ def ozon_debug(request):
         }
         
         clusters = client.get_pvz_clusters(viewport, zoom=10)
+        results['clusters_raw_response'] = clusters  # <-- ДОБАВЛЕНО: покажем весь ответ
         results['clusters_count'] = len(clusters.get('clusters', []))
         
         all_point_ids = []
