@@ -195,25 +195,26 @@ def cancel_order(request, order_id):
 
 @require_GET
 def ozon_pvz_list(request):
-    """Список ПВЗ для города: кэш → Ozon API через /v1/delivery/map"""
     city = (request.GET.get('ozon_city') or request.GET.get('city') or '').strip()
     
     if not city or len(city) < 3:
-        return HttpResponse("<p class='text-gray-500 text-sm text-center py-4'>Введите название города полностью (от 3 букв)</p>")
+        return HttpResponse("<p class='text-gray-500 text-sm text-center py-4'>Введите название города (мин. 3 символа)</p>")
     
-    # 1. Проверяем локальный кэш
-    cached_pvz = OzonPVZ.objects.filter(
-        city__icontains=city,
-        enabled=True
-    ).order_by('name')[:50]
+    logger.info(f"🔍 Поиск ПВЗ для города: {city}")
+    
+    # 1. Проверяем кэш
+    cached_pvz = OzonPVZ.objects.filter(city__icontains=city, enabled=True).order_by('name')[:50]
     
     if cached_pvz.exists():
+        logger.info(f"✅ Найдено {cached_pvz.count()} ПВЗ в кэше для {city}")
         return render(request, 'orders/partials/ozon_pvz_list.html', {
             'pvz_list': cached_pvz,
             'from_cache': True
         })
     
-    # 2. Кэша нет — получаем координаты города через Nominatim (бесплатно)
+    logger.info(f"⏳ Кэш пуст, запрашиваем Ozon API для {city}")
+    
+    # 2. Геокодинг
     try:
         geo_response = requests.get(
             "https://nominatim.openstreetmap.org/search",
@@ -223,54 +224,65 @@ def ozon_pvz_list(request):
         )
         geo_data = geo_response.json()
         if not geo_data:
+            logger.warning(f"⚠️ Nominatim не нашёл город: {city}")
             return HttpResponse(f"<p class='text-red-500 text-sm text-center py-4'>Город '{city}' не найден</p>")
         
         lat = float(geo_data[0]['lat'])
         lon = float(geo_data[0]['lon'])
-    except (requests.RequestException, ValueError, KeyError) as e:
-        logger.error(f"Ошибка геокодинга: {e}")
+        logger.info(f"📍 Координаты {city}: lat={lat}, lon={lon}")
+    except Exception as e:
+        logger.error(f"❌ Ошибка геокодинга: {e}")
         return HttpResponse("<p class='text-red-500 text-sm text-center py-4'>Ошибка определения координат</p>")
     
-    # 3. Формируем viewport (~50 км вокруг центра города)
+    # 3. Viewport
     delta = 0.45
     viewport = {
         "left_bottom": {"lat": lat - delta, "long": lon - delta},
         "right_top": {"lat": lat + delta, "long": lon + delta}
     }
     
-    # 4. Получаем кластеры точек через /v1/delivery/map (требует OAuth!)
+    # 4. Получаем кластеры
     client = OzonDeliveryClient()
     clusters_response = client.get_pvz_clusters(viewport, zoom=10)
     
     if 'error' in clusters_response:
-        return HttpResponse(
-            f"<p class='text-red-500 text-sm text-center py-4'>Ошибка загрузки ПВЗ: {clusters_response['error']}</p>"
-        )
+        logger.error(f"❌ Ошибка кластеров: {clusters_response['error']}")
+        return HttpResponse(f"<p class='text-red-500 text-sm text-center py-4'>Ошибка: {clusters_response['error']}</p>")
     
     clusters = clusters_response.get('clusters', [])
+    logger.info(f"📦 Получено кластеров: {len(clusters)}")
     
-    # 5. Собираем все map_point_ids из кластеров
+    # 5. Собираем ID
     all_point_ids = []
     for cluster in clusters:
         all_point_ids.extend([str(pid) for pid in cluster.get('map_point_ids', [])])
     
+    logger.info(f"🔢 Всего точек: {len(all_point_ids)}")
+    
     if not all_point_ids:
+        logger.warning(f"⚠️ Нет точек для {city}")
         return HttpResponse(f"<p class='text-gray-500 text-sm text-center py-4'>ПВЗ не найдены в радиусе 50 км от '{city}'</p>")
     
-    # Ограничиваем до 200 точек для скорости
     all_point_ids = all_point_ids[:200]
     
-    # 6. Получаем детали точек пачками по 100 (требует Api-Key)
+    # 6. Получаем детали
     all_details = []
     for i in range(0, len(all_point_ids), 100):
         batch = all_point_ids[i:i+100]
         info_response = client.get_pvz_info(batch)
         if 'error' not in info_response:
-            all_details.extend(info_response.get('points', []))
+            points = info_response.get('points', [])
+            all_details.extend(points)
+            logger.info(f"📋 Пачка {i//100 + 1}: получено {len(points)} точек")
+        else:
+            logger.error(f"❌ Ошибка деталей: {info_response['error']}")
         if i + 100 < len(all_point_ids):
-            time.sleep(0.2)  # Пауза, чтобы не превысить лимиты API
+            time.sleep(0.2)
     
-    # 7. Сохраняем полученные точки в наш кэш
+    logger.info(f"✅ Всего деталей: {len(all_details)}")
+    
+    # 7. Сохраняем в кэш
+    saved_count = 0
     for point_data in all_details:
         try:
             mp_id = point_data.get('map_point_id')
@@ -279,6 +291,7 @@ def ozon_pvz_list(request):
             dm = point_data.get('delivery_method', {})
             addr = dm.get('address_details', {})
             coord = dm.get('coordinates', {})
+            
             OzonPVZ.objects.update_or_create(
                 map_point_id=mp_id,
                 defaults={
@@ -292,9 +305,21 @@ def ozon_pvz_list(request):
                     'working_hours': dm.get('working_hours'),
                 }
             )
+            saved_count += 1
         except Exception as e:
-            logger.error(f"Ошибка сохранения ПВЗ {point_data.get('map_point_id')}: {e}")
+            logger.error(f"❌ Ошибка сохранения точки {mp_id}: {e}")
             continue
+    
+    logger.info(f"💾 Сохранено в кэш: {saved_count} точек")
+    
+    # 8. Возвращаем данные
+    fresh_pvz = OzonPVZ.objects.filter(city__icontains=city, enabled=True).order_by('name')[:50]
+    logger.info(f"🔍 Найдено в кэше после сохранения: {fresh_pvz.count()}")
+    
+    return render(request, 'orders/partials/ozon_pvz_list.html', {
+        'pvz_list': fresh_pvz,
+        'from_cache': False
+    })
     
     # 8. Возвращаем свежие данные из кэша
     fresh_pvz = OzonPVZ.objects.filter(
@@ -363,11 +388,8 @@ def ozon_delivery_checkout(request):
 # ==========================================
 # ВРЕМЕННЫЙ DEBUG VIEW (УДАЛИТЬ ПОСЛЕ ДИАГНОСТИКИ!)
 # ==========================================
-import time
-
 import requests as req
 from django.http import JsonResponse
-from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET
 
