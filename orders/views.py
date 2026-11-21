@@ -10,7 +10,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.models import F, Sum
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import (  # ✅ ДОБАВЛЕНО get_object_or_404
     get_object_or_404,
     redirect,
@@ -396,104 +396,109 @@ def ozon_delivery_checkout(request):
 # ==========================================
 # ВРЕМЕННЫЙ DEBUG VIEW (УДАЛИТЬ ПОСЛЕ ДИАГНОСТИКИ!)
 # ==========================================
-import requests as req
-from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_GET
-
-
-@csrf_exempt
 @require_GET
 def ozon_debug(request):
-    results = {}
-    city = "Санкт-Петербург"
-    results['city_searched'] = city
-    
-    # 1. Геокодинг
-    try:
-        geo = req.get("https://nominatim.openstreetmap.org/search", 
-                      params={"format": "json", "q": city, "limit": 1},
-                      headers={"User-Agent": "PBShopBot/1.0"}, timeout=10)
-        results['geocoding'] = {'success': True, 'lat': geo.json()[0]['lat'], 'lon': geo.json()[0]['lon']}
-    except Exception as e:
-        results['geocoding'] = {'error': str(e)}
-        return JsonResponse(results, json_dumps_params={'ensure_ascii': False, 'indent': 2})
-    
-    lat, lon = float(geo.json()[0]['lat']), float(geo.json()[0]['lon'])
-    
-    # 2. Полный цикл
-    try:
-        from orders.models import OzonAuth, OzonPVZ
-        from orders.ozon_client import OzonDeliveryClient
-        
-        auth = OzonAuth.objects.filter(is_active=True).first()
-        results['oauth'] = {
-            'token_exists': auth is not None,
-            'is_valid': auth.expires_at > timezone.now() if auth else False
-        }
-        
-        client = OzonDeliveryClient()
-        viewport = {
-            "left_bottom": {"lat": lat - 0.45, "long": lon - 0.45},
-            "right_top": {"lat": lat + 0.45, "long": lon + 0.45}
-        }
-        
-        clusters = client.get_pvz_clusters(viewport, zoom=10)
-        results['clusters_raw_response'] = clusters  # <-- ДОБАВЛЕНО: покажем весь ответ
-        results['clusters_count'] = len(clusters.get('clusters', []))
-        
-        all_point_ids = []
-        for cluster in clusters.get('clusters', []):
-            all_point_ids.extend([str(pid) for pid in cluster.get('map_point_ids', [])])
-        
-        results['total_point_ids_found'] = len(all_point_ids)
-        all_point_ids = all_point_ids[:200] # Ограничиваем
-        
-        all_details = []
-        first_batch_raw_response = None # <-- НОВОЕ: ловим сырой ответ
-        
-        for i in range(0, len(all_point_ids), 100):
-            batch = all_point_ids[i:i+100]
-            info_response = client.get_pvz_info(batch)
-            
-            if i == 0:
-                first_batch_raw_response = info_response # <-- Сохраняем ответ первой пачки
-                
-            if 'error' not in info_response:
-                all_details.extend(info_response.get('points', []))
-            if i + 100 < len(all_point_ids):
-                time.sleep(0.2)
-                
-        results['details_fetched_count'] = len(all_details)
-        results['first_batch_raw_response'] = first_batch_raw_response # <-- Добавляем в вывод
-        
-        # 3. Тест сохранения
-        if all_details:
-            test_point = all_details[0]
-            dm = test_point.get('delivery_method', {})
+    import requests as req
+    city = (request.GET.get('city') or request.GET.get('ozon_city') or 'Москва').strip()
+    r = {'city': city}
+
+    # 0. Проверка переменных
+    r['dadata_key_set'] = bool(getattr(settings, 'DADATA_API_KEY', ''))
+    r['warehouse_id'] = getattr(settings, 'OZON_TEST_WAREHOUSE_ID', None)
+    r['offer_id'] = getattr(settings, 'OZON_TEST_OFFER_ID', None)
+
+    # 1. DaData
+    lat = lon = None
+    dadata_key = getattr(settings, 'DADATA_API_KEY', '')
+    if dadata_key:
+        try:
+            resp = req.post(
+                "https://suggestions.dadata.ru/suggestions/api/4_1/rs/geolocate/address",
+                headers={"Authorization": f"Token {dadata_key}", "Content-Type": "application/json"},
+                json={"query": city}, timeout=10
+            )
+            r['dadata_status'] = resp.status_code
+            sug = resp.json().get('suggestions', [])
+            r['dadata_found'] = len(sug)
+            if sug:
+                lat = float(sug[0]['data']['geo_lat'])
+                lon = float(sug[0]['data']['geo_lon'])
+                r['dadata_coords'] = [lat, lon]
+        except Exception as e:
+            r['dadata_error'] = str(e)
+    else:
+        r['dadata_error'] = 'DADATA_API_KEY не задан'
+
+    # 1b. Fallback
+    if not lat:
+        from .cities import find_city_coords_fallback
+        fb = find_city_coords_fallback(city)
+        r['fallback_used'] = fb is not None
+        if fb:
+            lat, lon = fb
+
+    if not lat:
+        r['result'] = 'Город не найден ни DaData, ни fallback'
+        return JsonResponse(r, json_dumps_params={'ensure_ascii': False, 'indent': 2})
+
+    # 2. OAuth токен
+    from orders.models import OzonAuth, OzonPVZ
+    auth = OzonAuth.objects.filter(is_active=True).first()
+    r['oauth'] = {
+        'exists': auth is not None,
+        'valid': (auth.expires_at > timezone.now()) if auth else False,
+        'expires_at': str(auth.expires_at) if auth else None,
+    }
+
+    # 3. Кластеры
+    client = OzonDeliveryClient()
+    viewport = {
+        "left_bottom": {"lat": lat - 0.45, "long": lon - 0.45},
+        "right_top": {"lat": lat + 0.45, "long": lon + 0.45}
+    }
+    clusters = client.get_pvz_clusters(viewport, zoom=10)
+    r['clusters_raw'] = clusters if 'error' in clusters else {'ok': True, 'count': len(clusters.get('clusters', []))}
+
+    ids = []
+    for c in clusters.get('clusters', []):
+        ids.extend([str(p) for p in c.get('map_point_ids', [])])
+    r['point_ids'] = len(ids)
+    ids = ids[:200]
+
+    # 4. Детали (одна пачка)
+    if ids:
+        info = client.get_pvz_info(ids[:100])
+        r['info_raw'] = info if 'error' in info else {'ok': True, 'count': len(info.get('points', []))}
+        points = info.get('points', [])
+        r['first_point_city'] = points[0].get('delivery_method', {}).get('address_details', {}).get('city') if points else None
+
+        # 5. Пробуем сохранить ОДНУ точку
+        if points:
+            p = points[0]
+            dm = p.get('delivery_method', {})
             addr = dm.get('address_details', {})
             coord = dm.get('coordinates', {})
-            
             try:
                 obj, created = OzonPVZ.objects.update_or_create(
-                    map_point_id=test_point.get('map_point_id'),
+                    map_point_id=p.get('map_point_id'),
                     defaults={
-                        'name': dm.get('name', ''),
-                        'address': dm.get('address', ''),
-                        'city': addr.get('city', city),
-                        'region': addr.get('region', ''),
-                        'lat': coord.get('lat'),
-                        'lng': coord.get('long'),
-                        'enabled': test_point.get('enabled', True),
+                        'name': dm.get('name', ''), 'address': dm.get('address', ''),
+                        'city': addr.get('city', city), 'region': addr.get('region', ''),
+                        'lat': coord.get('lat'), 'lng': coord.get('long') or coord.get('lng'),
+                        'enabled': p.get('enabled', True),
                     }
                 )
-                results['db_save_test'] = {'success': True, 'created': created, 'saved_name': dm.get('name')}
-            except Exception as db_e:
-                results['db_save_test'] = {'error': str(db_e)}
-        else:
-            results['db_save_test'] = 'Нет данных для сохранения (all_details пуст)'
-            
-    except Exception as e:
-        results['full_flow_error'] = str(e)
+                r['db_save'] = {'ok': True, 'created': created, 'saved_city': obj.city}
+            except Exception as e:
+                r['db_save'] = {'error': str(e)}
 
-    return JsonResponse(results, json_dumps_params={'ensure_ascii': False, 'indent': 2})
+    # 6. Финальный фильтр как в реальном коде
+    r['final_filter_count'] = OzonPVZ.objects.filter(city__icontains=city, enabled=True).count()
+    r['total_in_db'] = OzonPVZ.objects.count()
+    r['result'] = 'OK' if r['final_filter_count'] > 0 else 'ПУСТО на этапе ' + str(
+        'кластеры' if r['point_ids'] == 0 else
+        'детали' if 'info_raw' in r and 'error' in str(r.get('info_raw','')) else
+        'сохранение' if 'db_save' in r and 'error' in str(r.get('db_save','')) else
+        'фильтр по городу'
+    )
+    return JsonResponse(r, json_dumps_params={'ensure_ascii': False, 'indent': 2})
