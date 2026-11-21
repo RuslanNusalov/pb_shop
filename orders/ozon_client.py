@@ -104,27 +104,27 @@ class OzonDeliveryClient:
     # МЕТОДЫ ДЛЯ РАБОТЫ С ПВЗ
     # ==========================================
 
+    def get_pvz_clusters(self, viewport, zoom=10):
+            """
+            Получает кластеры точек самовывоза по viewport карты.
+            Авторизация: OAuth Bearer токен
+            """
+            return self._make_request(
+                '/v1/delivery/map',
+                {"viewport": viewport, "zoom": zoom},
+                auth='oauth'
+            )
+    
     def get_pvz_info(self, map_point_ids):
-        """
-        Получает детали точек самовывоза по ID.
-        Авторизация: Api-Key
-        """
         return self._make_request(
             '/v1/delivery/point/info',
             {"map_point_ids": [str(pid) for pid in map_point_ids]},
-            auth='api_key'
+            auth='oauth'  # ← ДОЛЖНО БЫТЬ oauth, НЕ api_key
         )
 
-    def get_pvz_clusters(self, viewport, zoom=10):
-        """
-        Получает кластеры точек самовывоза по viewport карты.
-        Авторизация: OAuth Bearer токен
-        """
-        return self._make_request(
-            '/v1/delivery/map',
-            {"viewport": viewport, "zoom": zoom},
-            auth='oauth'
-        )
+    def get_all_pvz_points(self):
+        return self._make_request('/v1/delivery/point/list', {}, auth='oauth')
+
 
     # ==========================================
     # МЕТОДЫ ДЛЯ РАСЧЁТА ДОСТАВКИ
