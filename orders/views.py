@@ -28,6 +28,7 @@ from cart.views import CartMixin
 from main.mixins import WishlistContextMixin
 from main.models import ProductSize
 
+from .cities import find_city_coords_fallback
 from .forms import OrderForm
 from .models import Order, OrderItem, OzonPVZ
 from .ozon_client import OzonDeliveryClient
@@ -215,24 +216,42 @@ def ozon_pvz_list(request):
     logger.info(f"⏳ Кэш пуст, запрашиваем Ozon API для {city}")
     
     # 2. Геокодинг
-    try:
-        geo_response = requests.get(
-            "https://nominatim.openstreetmap.org/search",
-            params={"format": "json", "q": city, "limit": 1},
-            headers={"User-Agent": "PBShopBot/1.0 (spbpb.ru)"},
-            timeout=10
-        )
-        geo_data = geo_response.json()
-        if not geo_data:
-            logger.warning(f"⚠️ Nominatim не нашёл город: {city}")
-            return HttpResponse(f"<p class='text-red-500 text-sm text-center py-4'>Город '{city}' не найден</p>")
-        
-        lat = float(geo_data[0]['lat'])
-        lon = float(geo_data[0]['lon'])
-        logger.info(f"📍 Координаты {city}: lat={lat}, lon={lon}")
-    except Exception as e:
-        logger.error(f"❌ Ошибка геокодинга: {e}")
-        return HttpResponse("<p class='text-red-500 text-sm text-center py-4'>Ошибка определения координат</p>")
+    lat, lon = None, None
+    
+    # Пробуем DaData
+    dadata_key = getattr(settings, 'DADATA_API_KEY', '')
+    if dadata_key:
+        try:
+            dadata_response = requests.post(
+                "https://suggestions.dadata.ru/suggestions/api/4_1/rs/geolocate/address",
+                headers={
+                    "Authorization": f"Token {dadata_key}",
+                    "Content-Type": "application/json",
+                },
+                json={"query": city},
+                timeout=10
+            )
+            if dadata_response.status_code == 200:
+                dadata_data = dadata_response.json()
+                if dadata_data.get('suggestions'):
+                    lat = float(dadata_data['suggestions'][0]['data']['geo_lat'])
+                    lon = float(dadata_data['suggestions'][0]['data']['geo_lon'])
+                    logger.info(f"📍 DaData нашёл {city}: lat={lat}, lon={lon}")
+        except Exception as e:
+            logger.warning(f"⚠️ DaData ошибка: {e}")
+    
+    # Fallback на встроенный список
+    if not lat or not lon:
+        logger.info(f"⚠️ DaData не нашла {city}, используем fallback")
+        coords = find_city_coords_fallback(city)
+        if coords:
+            lat, lon = coords
+            logger.info(f"📍 Fallback нашёл {city}: lat={lat}, lon={lon}")
+    
+    # Если ничего не нашли
+    if not lat or not lon:
+        logger.warning(f"❌ Город не найден: {city}")
+        return HttpResponse(f"<p class='text-red-500 text-sm text-center py-4'>Город '{city}' не найден. Попробуйте написать полностью.</p>")
     
     # 3. Viewport
     delta = 0.45
@@ -315,17 +334,6 @@ def ozon_pvz_list(request):
     # 8. Возвращаем данные
     fresh_pvz = OzonPVZ.objects.filter(city__icontains=city, enabled=True).order_by('name')[:50]
     logger.info(f"🔍 Найдено в кэше после сохранения: {fresh_pvz.count()}")
-    
-    return render(request, 'orders/partials/ozon_pvz_list.html', {
-        'pvz_list': fresh_pvz,
-        'from_cache': False
-    })
-    
-    # 8. Возвращаем свежие данные из кэша
-    fresh_pvz = OzonPVZ.objects.filter(
-        city__icontains=city,
-        enabled=True
-    ).order_by('name')[:50]
     
     return render(request, 'orders/partials/ozon_pvz_list.html', {
         'pvz_list': fresh_pvz,
