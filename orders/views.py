@@ -491,16 +491,20 @@ def ozon_debug(request):
         points = info.get('points', [])
         r['first_point_city'] = points[0].get('delivery_method', {}).get('address_details', {}).get('city') if points else None
 
-    # 5. Пробуем сохранить ОДНУ точку
+    # 5. Пробуем сохранить ОДНУ точку и смотрим структуру
     if points:
         p = points[0]
+        r['first_point_structure'] = p  # <-- НОВОЕ: показываем всю структуру
         dm = p.get('delivery_method', {})
         addr = dm.get('address_details', {})
         coord = dm.get('coordinates', {})
         mp_id = p.get('map_point_id')
         
+        r['map_point_id_from_top'] = mp_id
+        r['map_point_id_from_dm'] = dm.get('map_point_id')
+        
         if not mp_id:
-            r['db_save'] = {'skipped': 'no map_point_id'}
+            r['db_save'] = {'skipped': 'no map_point_id at top level'}
         else:
             try:
                 obj, created = OzonPVZ.objects.update_or_create(
