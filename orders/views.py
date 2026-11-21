@@ -345,7 +345,7 @@ def ozon_pvz_list(request):
     fresh_pvz = OzonPVZ.objects.filter(
         Q(region__icontains=city) | Q(city__icontains=city),
         enabled=True
-    ).order_by('name')[:50]
+    ).order_by('name')[:200]
     
     # Если ничего не нашли по региону/городу, берём ближайшие по координатам
     if not fresh_pvz.exists():
@@ -367,25 +367,35 @@ def ozon_pvz_list(request):
 
 @require_GET
 def ozon_delivery_checkout(request):
-    """Расчёт стоимости доставки для выбранного ПВЗ"""
     map_point_id = request.GET.get('map_point_id', '')
-    phone = request.GET.get('phone', '')
+    phone_raw = request.GET.get('phone', '')
     
-    if not phone or len(phone.replace('+', '').replace(' ', '').replace('-', '')) < 10:
-        return HttpResponse("<p class='text-red-500 text-xs font-medium'>⚠️ Введите корректный номер телефона.</p>")
+    # Очищаем телефон: убираем +, пробелы, дефисы, скобки
+    phone = ''.join(c for c in phone_raw if c.isdigit())
+    if phone.startswith('8'):
+        phone = '7' + phone[1:]  # Заменяем 8 на 7
     
+    logger.info(f"📞 Телефон для Ozon: {phone} (исходный: {phone_raw})")
+    
+    if not phone or len(phone) < 11:
+        return HttpResponse("<p class='text-red-500 text-xs font-medium'>⚠️ Введите корректный номер телефона (минимум 11 цифр).</p>")
     if not map_point_id:
         return HttpResponse("<p class='text-red-500 text-xs'>Выберите пункт выдачи.</p>")
 
     client = OzonDeliveryClient()
     
+    # Логируем параметры запроса
+    logger.info(f"📦 Расчёт доставки: map_point_id={map_point_id}, phone={phone}, warehouse_id={OZON_TEST_WAREHOUSE_ID}, offer_id={OZON_TEST_OFFER_ID}")
+    
     response_data = client.calculate_checkout(
         items=[{"offer_id": OZON_TEST_OFFER_ID, "quantity": 1, "sku": 0}],
-        map_point_id=map_point_id,
-        phone=phone,
-        warehouse_id=OZON_TEST_WAREHOUSE_ID,
+        map_point_id=map_point_id, 
+        phone=phone, 
+        warehouse_id=OZON_TEST_WAREHOUSE_ID, 
         delivery_schema="MIX"
     )
+    
+    logger.info(f"📊 Ответ Ozon: {response_data}")
     
     # Извлекаем стоимость и сроки доставки из ответа
     cost = None

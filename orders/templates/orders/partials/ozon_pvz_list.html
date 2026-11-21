@@ -26,4 +26,24 @@
             </label>
         {% endfor %}
     </div>
+    
+    <script>
+        // Обработчик переключения радио-кнопок
+        document.querySelectorAll('input[name="ozon_point_radio"]').forEach(radio => {
+            radio.addEventListener('change', function() {
+                // Убираем выделение со всех пунктов
+                document.querySelectorAll('.pvz-item').forEach(item => {
+                    item.classList.remove('border-black', 'bg-blue-50');
+                    item.classList.add('border-gray-200');
+                });
+                
+                // Добавляем выделение на выбранный
+                const selectedLabel = this.closest('.pvz-item');
+                if (selectedLabel) {
+                    selectedLabel.classList.remove('border-gray-200');
+                    selectedLabel.classList.add('border-black', 'bg-blue-50');
+                }
+            });
+        });
+    </script>
 {% endif %}

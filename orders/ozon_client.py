@@ -143,28 +143,20 @@ class OzonDeliveryClient:
 
     def calculate_checkout(self, items, map_point_id, phone, warehouse_id, delivery_schema="MIX"):
         """
-        Рассчитывает стоимость и срок доставки.
-        
-        Args:
-            items: [{"offer_id": "string", "quantity": 1, "sku": 0}]
-            map_point_id: ID точки на карте (из /v1/delivery/map)
-            phone: номер телефона покупателя
-            warehouse_id: ID склада продавца
-            delivery_schema: MIX/FBO/FBS
-        
-        Авторизация: OAuth
+        Рассчитывает стоимость доставки через Ozon.
         """
         payload = {
-            "buyer_phone": self._normalize_phone(phone),
-            "delivery_schema": delivery_schema,
-            "delivery_type": {
-                "pick_up": {
-                    "map_point_id": int(map_point_id)
-                }
-            },
             "items": items,
+            "delivery_method": {
+                "map_point_id": int(map_point_id),
+                "phone": phone,
+            },
             "warehouse_id": int(warehouse_id),
+            "delivery_schema": delivery_schema,
         }
+        
+        logger.info(f"📤 Запрос к Ozon /v2/delivery/checkout: {payload}")
+        
         return self._make_request('/v2/delivery/checkout', payload, auth='oauth')
 
     # ==========================================
