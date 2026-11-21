@@ -300,16 +300,14 @@ def ozon_pvz_list(request):
     
     logger.info(f"✅ Всего деталей: {len(all_details)}")
     
-    # 7. Сохраняем в кэш (пропускаем точки без map_point_id)
+    # 7. Сохраняем в кэш (map_point_id лежит внутри delivery_method!)
     saved_count = 0
     for point_data in all_details:
         try:
-            mp_id = point_data.get('map_point_id')
-            if not mp_id:
-                logger.warning(f"⚠️ Пропускаем точку без map_point_id: {point_data}")
-                continue
-            
             dm = point_data.get('delivery_method', {})
+            mp_id = dm.get('map_point_id')  # ← ИСПРАВЛЕНО: берём из delivery_method
+            if not mp_id:
+                continue
             addr = dm.get('address_details', {})
             coord = dm.get('coordinates', {})
             
@@ -328,7 +326,7 @@ def ozon_pvz_list(request):
             )
             saved_count += 1
         except Exception as e:
-            logger.error(f"❌ Ошибка сохранения точки {point_data.get('map_point_id')}: {e}")
+            logger.error(f"❌ Ошибка сохранения точки: {e}")
             continue
     
     logger.info(f"💾 Сохранено в кэш: {saved_count} точек")
@@ -498,7 +496,7 @@ def ozon_debug(request):
         dm = p.get('delivery_method', {})
         addr = dm.get('address_details', {})
         coord = dm.get('coordinates', {})
-        mp_id = p.get('map_point_id')
+        mp_id = dm.get('map_point_id')  # ← ИСПРАВЛЕНО
         
         r['map_point_id_from_top'] = mp_id
         r['map_point_id_from_dm'] = dm.get('map_point_id')
