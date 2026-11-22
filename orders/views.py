@@ -412,7 +412,8 @@ def ozon_delivery_checkout(request):
             map_point_id=map_point_id,
             phone=phone,
             warehouse_id=warehouse_id,
-            delivery_schema="MIX"
+            delivery_schema="MIX",
+            delivery_type="pick_up"  # ← для ПВЗ/постаматов
         )
         
         logger.info(f"📊 Ответ Ozon: {response_data}")
@@ -458,8 +459,6 @@ def ozon_delivery_checkout(request):
 @require_GET
 def ozon_debug(request):
 
-    city = (request.GET.get('city') or 'Санкт-Петербург').strip()
-    # берём первый реальный ПВЗ из кэша
     pvz = OzonPVZ.objects.filter(enabled=True).exclude(map_point_id__isnull=True).first()
     if not pvz:
         return JsonResponse({'error': 'нет ПВЗ в кэше'})
@@ -469,26 +468,23 @@ def ozon_debug(request):
     phone = '79111719087'
     client = OzonDeliveryClient()
 
-    candidates = [
-        "PICKUP", "POSTAMAT", "COURIER",
-        "DELIVERY_TYPE_PICKUP", "DELIVERY_TYPE_POSTAMAT", "DELIVERY_TYPE_COURIER",
-        "DELIVERY_TYPE_UNSPECIFIED",
-        1, 2, 3,
-    ]
-    results = {}
-    for dt in candidates:
-        try:
-            resp = client.calculate_checkout(
-                items=[{"sku": sku, "quantity": 1}],
-                map_point_id=int(pvz.map_point_id),
-                phone=phone, warehouse_id=wh, delivery_schema="MIX",
-                delivery_type=dt,
-            )
-            results[str(dt)] = resp if 'error' in resp else {'OK': True, 'options': len(resp.get('delivery_options', []))}
-        except Exception as e:
-            results[str(dt)] = {'exception': str(e)[:200]}
+    # Правильный payload по документации
+    payload = {
+        "buyer_phone": phone,
+        "delivery_schema": "MIX",
+        "delivery_type": {
+            "pick_up": {
+                "map_point_id": int(pvz.map_point_id)
+            }
+        },
+        "items": [{"sku": sku, "quantity": 1}],
+        "warehouse_id": wh,
+    }
 
+    resp = client._make_request('/v2/delivery/checkout', payload, auth='oauth')
+    
     return JsonResponse({
         'pvz_id': pvz.map_point_id, 'sku': sku, 'warehouse': wh,
-        'tried': results,
+        'payload': payload,
+        'response': resp,
     }, json_dumps_params={'ensure_ascii': False, 'indent': 2})
