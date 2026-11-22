@@ -148,7 +148,7 @@ class OzonDeliveryClient:
             "items": items,
             "warehouse_id": int(warehouse_id),
             "delivery_schema": delivery_schema,
-            "delivery_type": "PVZ",  # ← ДОБАВИТЬ: тип доставки (PVZ = пункт выдачи)
+            "delivery_type": 3,  # ✅ число (3 = ПВЗ/Постамат),  # ← ДОБАВИТЬ: тип доставки (PVZ = пункт выдачи)
             "customer": {
                 "phone": str(phone)
             },
