@@ -69,24 +69,24 @@ class OzonDeliveryClient:
         else:
             raise RuntimeError(f"Не удалось обновить токен Ozon: {response.text}")
 
-    def _make_request(self, endpoint, payload, auth='oauth'):
-        """
-        Универсальный метод для запросов к Ozon API.
-        auth='api_key' — для /v1/delivery/point/list и /v1/delivery/point/info
-        auth='oauth' — для /v1/delivery/map, /v2/delivery/checkout, /v2/order/create
-        """
-        url = f"{self.BASE_URL}{endpoint}"
-        headers = self._headers_api_key() if auth == 'api_key' else self._headers_oauth()
+    def _make_request(self, path, payload, auth='oauth'):
+        headers = self._headers_oauth() if auth == 'oauth' else self._headers_api_key()
+        url = f"{self.base_url}{path}"
         try:
             response = requests.post(url, json=payload, headers=headers, timeout=30)
             response.raise_for_status()
             return response.json()
-        except requests.exceptions.RequestException as e:
-            logger.error(f"🚨 Ошибка запроса к Ozon API ({endpoint}): {e}")
+        except requests.exceptions.HTTPError as e:
+            # ← ГЛАВНОЕ: читаем тело ошибки, которое Ozon теперь возвращает подробно
+            try:
+                body = e.response.text[:500]
+            except Exception:
+                body = ""
+            logger.error(f"Ozon API {path} -> HTTP {e.response.status_code}: {body}")
+            return {"error": f"HTTP {e.response.status_code}. Ozon: {body}"}
+        except Exception as e:
+            logger.error(f"Ozon API {path} -> {e}")
             return {"error": str(e)}
-        except ValueError:
-            logger.error(f"🚨 Ozon вернул не-JSON для {endpoint}")
-            return {"error": "Invalid JSON response"}
 
     @staticmethod
     def _normalize_phone(phone):

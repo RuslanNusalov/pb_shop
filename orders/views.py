@@ -36,7 +36,7 @@ from .ozon_client import OzonDeliveryClient
 logger = logging.getLogger(__name__)
 
 OZON_TEST_WAREHOUSE_ID = getattr(settings, 'OZON_TEST_WAREHOUSE_ID', '')
-OZON_TEST_OFFER_ID = getattr(settings, 'OZON_TEST_OFFER_ID', '')
+OZON_TEST_SKU = getattr(settings, 'OZON_TEST_SKU', '')
 
 
 @method_decorator(login_required(login_url=reverse_lazy('users:login')), name='dispatch') # ✅ Используем reverse_lazy
@@ -204,7 +204,7 @@ def ozon_pvz_list(request):
     logger.info(f"🔍 Поиск ПВЗ для города: {city}")
     
     # 1. Проверяем кэш
-    cached_pvz = OzonPVZ.objects.filter(city__icontains=city, enabled=True).order_by('name')[:50]
+    cached_pvz = OzonPVZ.objects.filter(city__icontains=city, enabled=True).order_by('name')[:150]
     
     if cached_pvz.exists():
         logger.info(f"✅ Найдено {cached_pvz.count()} ПВЗ в кэше для {city}")
@@ -345,7 +345,7 @@ def ozon_pvz_list(request):
     fresh_pvz = OzonPVZ.objects.filter(
         Q(region__icontains=city) | Q(city__icontains=city),
         enabled=True
-    ).order_by('name')[:200]
+    ).order_by('name')[:150]
     
     # Если ничего не нашли по региону/городу, берём ближайшие по координатам
     if not fresh_pvz.exists():
@@ -370,61 +370,68 @@ def ozon_delivery_checkout(request):
     map_point_id = request.GET.get('map_point_id', '')
     phone_raw = request.GET.get('phone', '')
     
-    # Очищаем телефон: убираем +, пробелы, дефисы, скобки
+    # 1. Очистка телефона (оставляем только цифры, 8 меняем на 7)
     phone = ''.join(c for c in phone_raw if c.isdigit())
     if phone.startswith('8'):
-        phone = '7' + phone[1:]  # Заменяем 8 на 7
-    
-    logger.info(f"📞 Телефон для Ozon: {phone} (исходный: {phone_raw})")
+        phone = '7' + phone[1:]
     
     if not phone or len(phone) < 11:
         return HttpResponse("<p class='text-red-500 text-xs font-medium'>⚠️ Введите корректный номер телефона (минимум 11 цифр).</p>")
     if not map_point_id:
         return HttpResponse("<p class='text-red-500 text-xs'>Выберите пункт выдачи.</p>")
 
+    # 2. Получаем настройки (строго OZON_TEST_SKU)
+    test_sku_str = getattr(settings, 'OZON_TEST_SKU', None)
+    warehouse_id = getattr(settings, 'OZON_TEST_WAREHOUSE_ID', None)
+    
+    if not test_sku_str or not warehouse_id:
+        logger.error("❌ Отсутствуют OZON_TEST_SKU или OZON_TEST_WAREHOUSE_ID в настройках")
+        return HttpResponse("<p class='text-red-500 text-xs'>Ошибка конфигурации: не указан тестовый SKU или склад.</p>")
+
+    try:
+        test_sku = int(test_sku_str)
+        warehouse_id = int(warehouse_id)
+        map_point_id = int(map_point_id)
+    except ValueError as e:
+        logger.error(f"❌ Ошибка преобразования типов: {e}")
+        return HttpResponse("<p class='text-red-500 text-xs'>Ошибка: SKU и warehouse_id должны быть числами.</p>")
+
     client = OzonDeliveryClient()
     
-    # Логируем параметры запроса
-    logger.info(f"📦 Расчёт доставки: map_point_id={map_point_id}, phone={phone}, warehouse_id={OZON_TEST_WAREHOUSE_ID}, offer_id={OZON_TEST_OFFER_ID}")
+    logger.info(f"📦 Расчёт доставки: map_point_id={map_point_id}, phone={phone}, warehouse_id={warehouse_id}, sku={test_sku}")
     
+    # 3. Формируем запрос: ключ "sku", значение int
     response_data = client.calculate_checkout(
-        items=[{"offer_id": OZON_TEST_OFFER_ID, "quantity": 1, "sku": 0}],
-        map_point_id=map_point_id, 
-        phone=phone, 
-        warehouse_id=OZON_TEST_WAREHOUSE_ID, 
+        items=[{"sku": test_sku, "quantity": 1}],
+        map_point_id=map_point_id,
+        phone=phone,
+        warehouse_id=warehouse_id,
         delivery_schema="MIX"
     )
     
-    logger.info(f"📊 Ответ Ozon: {response_data}")
+    logger.info(f"📊 Ответ Ozon Checkout: {response_data}")
     
-    # Извлекаем стоимость и сроки доставки из ответа
-    cost = None
-    delivery_time = None
-    error_msg = None
-    
+    # 4. Обработка ответа
     if 'error' in response_data:
-        error_msg = response_data['error']
-    else:
-        splits = response_data.get('splits', [])
-        if splits:
-            split = splits[0]
-            commissions = split.get('commissions', {})
-            if commissions and commissions.get('total'):
-                cost = commissions['total'].get('amount')
-            
-            delivery_method = split.get('delivery_method', {})
-            timeslots = delivery_method.get('timeslots', [])
-            if timeslots:
-                delivery_time = "1-2 дня"  # Упрощённое отображение
+        return HttpResponse(f"<p class='text-red-500 text-xs font-medium'>⚠️ Ошибка расчёта: {response_data['error']}</p>")
     
-    context = {
+    delivery_options = response_data.get('delivery_options', [])
+    if not delivery_options:
+        return HttpResponse("<p class='text-yellow-600 text-xs'>ℹ️ Доставка в этот пункт временно недоступна.</p>")
+    
+    option = delivery_options[0]
+    cost = option.get('price', 0)
+    
+    delivery_days = option.get('delivery_days', {})
+    min_days = delivery_days.get('min', 0)
+    max_days = delivery_days.get('max', 0)
+    delivery_time = f"{min_days}-{max_days} дн." if min_days != max_days else f"{min_days} дн."
+    
+    return render(request, 'orders/partials/ozon_delivery_cost.html', {
         'cost': cost,
         'delivery_time': delivery_time,
-        'error_msg': error_msg,
-        'map_point_id': map_point_id,
-    }
-    
-    return render(request, 'orders/partials/ozon_delivery_cost.html', context)
+        'map_point_id': map_point_id
+    })
 
 
 # ==========================================
@@ -497,7 +504,7 @@ def ozon_debug(request):
     for c in clusters.get('clusters', []):
         ids.extend([str(p) for p in c.get('map_point_ids', [])])
     r['point_ids'] = len(ids)
-    ids = ids[:200]
+    ids = ids[:150]
 
     # 4. Детали (одна пачка)
     if ids:
