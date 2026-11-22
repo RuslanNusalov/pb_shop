@@ -11,8 +11,6 @@ logger = logging.getLogger(__name__)
 
 
 class OzonDeliveryClient:
-    BASE_URL = "https://api-seller.ozon.ru"
-
     def __init__(self):
         # Для справочных методов (point/list, point/info) — Api-Key
         self.client_id = str(getattr(settings, 'OZON_CLIENT_ID', '')).strip()
@@ -20,6 +18,7 @@ class OzonDeliveryClient:
         # Для методов доставки (map, checkout, create) — OAuth
         self.oauth_client_id = getattr(settings, 'OZON_OAUTH_CLIENT_ID', '')
         self.oauth_client_secret = getattr(settings, 'OZON_OAUTH_CLIENT_SECRET', '')
+        self.base_url = "https://api-seller.ozon.ru"
 
     def _headers_api_key(self):
         """Заголовки для методов с Api-Key авторизацией"""
