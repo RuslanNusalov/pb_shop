@@ -413,25 +413,31 @@ def ozon_delivery_checkout(request):
     
     # 4. Обработка ответа
     if 'error' in response_data:
+        logger.error(f"❌ Ozon вернул ошибку: {response_data['error']}")
         return HttpResponse(f"<p class='text-red-500 text-xs font-medium'>⚠️ Ошибка расчёта: {response_data['error']}</p>")
     
-    delivery_options = response_data.get('delivery_options', [])
-    if not delivery_options:
-        return HttpResponse("<p class='text-yellow-600 text-xs'>ℹ️ Доставка в этот пункт временно недоступна.</p>")
-    
-    option = delivery_options[0]
-    cost = option.get('price', 0)
-    
-    delivery_days = option.get('delivery_days', {})
-    min_days = delivery_days.get('min', 0)
-    max_days = delivery_days.get('max', 0)
-    delivery_time = f"{min_days}-{max_days} дн." if min_days != max_days else f"{min_days} дн."
-    
-    return render(request, 'orders/partials/ozon_delivery_cost.html', {
-        'cost': cost,
-        'delivery_time': delivery_time,
-        'map_point_id': map_point_id
-    })
+    try:
+        delivery_options = response_data.get('delivery_options', [])
+        if not delivery_options:
+            logger.warning(f"⚠️ Нет вариантов доставки. Полный ответ: {response_data}")
+            return HttpResponse("<p class='text-yellow-600 text-xs'>ℹ️ Доставка в этот пункт временно недоступна.</p>")
+        
+        option = delivery_options[0]
+        cost = option.get('price', 0)
+        
+        delivery_days = option.get('delivery_days', {})
+        min_days = delivery_days.get('min', 0)
+        max_days = delivery_days.get('max', 0)
+        delivery_time = f"{min_days}-{max_days} дн." if min_days != max_days else f"{min_days} дн."
+        
+        return render(request, 'orders/partials/ozon_delivery_cost.html', {
+            'cost': cost,
+            'delivery_time': delivery_time,
+            'map_point_id': map_point_id
+        })
+    except Exception as e:
+        logger.error(f"❌ Ошибка парсинга ответа Ozon: {e}. Полный ответ: {response_data}")
+        return HttpResponse(f"<p class='text-red-500 text-xs font-medium'>⚠️ Ошибка обработки ответа: {str(e)[:100]}</p>")
 
 
 # ==========================================
