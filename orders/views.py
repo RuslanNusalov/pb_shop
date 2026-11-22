@@ -413,7 +413,7 @@ def ozon_delivery_checkout(request):
             phone=phone,
             warehouse_id=warehouse_id,
             delivery_schema="MIX",
-            delivery_type="pick_up"  # ← для ПВЗ/постаматов
+            delivery_type="pick_up"
         )
         
         logger.info(f"📊 Ответ Ozon: {response_data}")
@@ -423,19 +423,29 @@ def ozon_delivery_checkout(request):
             logger.error(f"❌ Ozon вернул ошибку: {response_data['error']}")
             return HttpResponse(f"<p class='text-red-500 text-xs font-medium'>⚠️ Ошибка расчёта: {response_data['error']}</p>")
         
-        # 5. Парсинг результата
-        delivery_options = response_data.get('delivery_options', [])
-        if not delivery_options:
-            logger.warning(f"⚠️ Нет вариантов доставки. Ответ: {response_data}")
+        # 5. Парсинг структуры splits (реальный формат ответа Ozon)
+        splits = response_data.get('splits', [])
+        if not splits:
+            logger.warning(f"⚠️ Нет splits в ответе. Ответ: {response_data}")
             return HttpResponse("<p class='text-yellow-600 text-xs'>ℹ️ Доставка в этот пункт временно недоступна.</p>")
         
-        option = delivery_options[0]
-        cost = option.get('price', 0)
+        # Берём первый split
+        split = splits[0]
         
-        delivery_days = option.get('delivery_days', {})
-        min_days = delivery_days.get('min', 0)
-        max_days = delivery_days.get('max', 0)
-        delivery_time = f"{min_days}-{max_days} дн." if min_days != max_days else f"{min_days} дн."
+        # Стоимость из commissions.total.amount
+        commissions = split.get('commissions', {})
+        total = commissions.get('total', {})
+        cost = total.get('amount', 0)
+        
+        # Сроки из timeslots
+        timeslots = split.get('delivery_method', {}).get('timeslots', [])
+        if timeslots:
+            first_slot = timeslots[0]
+            date_from = first_slot.get('logistic_date_range', {}).get('from', '')
+            date_to = first_slot.get('logistic_date_range', {}).get('to', '')
+            delivery_time = f"{date_from[:10]} - {date_to[:10]}" if date_from and date_to else "Уточняется"
+        else:
+            delivery_time = "Уточняется"
         
         logger.info(f"✅ Успех: cost={cost}, delivery_time={delivery_time}")
         
@@ -449,7 +459,6 @@ def ozon_delivery_checkout(request):
         import traceback
         error_details = traceback.format_exc()
         logger.error(f"💥 Критическая ошибка в ozon_delivery_checkout:\n{error_details}")
-        # Временно выводим детали ошибки в браузер (УДАЛИТЬ ПОСЛЕ ДИАГНОСТИКИ!)
         return HttpResponse(f"<pre style='color:red;font-size:10px;'>ОШИБКА 500:\n{error_details}</pre>")
 
 
