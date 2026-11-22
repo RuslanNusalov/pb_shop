@@ -457,119 +457,38 @@ def ozon_delivery_checkout(request):
 # ==========================================
 @require_GET
 def ozon_debug(request):
-    import requests as req
-    city = (request.GET.get('city') or request.GET.get('ozon_city') or 'Москва').strip()
-    r = {'city': city}
 
-    # 0. Проверка переменных
-    r['dadata_key_set'] = bool(getattr(settings, 'DADATA_API_KEY', ''))
-    r['warehouse_id'] = getattr(settings, 'OZON_TEST_WAREHOUSE_ID', None)
-    r['offer_id'] = getattr(settings, 'OZON_TEST_OFFER_ID', None)
+    city = (request.GET.get('city') or 'Санкт-Петербург').strip()
+    # берём первый реальный ПВЗ из кэша
+    pvz = OzonPVZ.objects.filter(enabled=True).exclude(map_point_id__isnull=True).first()
+    if not pvz:
+        return JsonResponse({'error': 'нет ПВЗ в кэше'})
 
-    # 1. DaData
-    lat = lon = None
-    dadata_key = getattr(settings, 'DADATA_API_KEY', '')
-    if dadata_key:
-        try:
-            resp = req.post(
-                "https://suggestions.dadata.ru/suggestions/api/4_1/rs/geolocate/address",
-                headers={"Authorization": f"Token {dadata_key}", "Content-Type": "application/json"},
-                json={"query": city}, timeout=10
-            )
-            r['dadata_status'] = resp.status_code
-            sug = resp.json().get('suggestions', [])
-            r['dadata_found'] = len(sug)
-            if sug:
-                lat = float(sug[0]['data']['geo_lat'])
-                lon = float(sug[0]['data']['geo_lon'])
-                r['dadata_coords'] = [lat, lon]
-        except Exception as e:
-            r['dadata_error'] = str(e)
-    else:
-        r['dadata_error'] = 'DADATA_API_KEY не задан'
-
-    # 1b. Fallback
-    if not lat:
-        from .cities import find_city_coords_fallback
-        fb = find_city_coords_fallback(city)
-        r['fallback_used'] = fb is not None
-        if fb:
-            lat, lon = fb
-
-    if not lat:
-        r['result'] = 'Город не найден ни DaData, ни fallback'
-        return JsonResponse(r, json_dumps_params={'ensure_ascii': False, 'indent': 2})
-
-    # 2. OAuth токен
-    from orders.models import OzonAuth, OzonPVZ
-    auth = OzonAuth.objects.filter(is_active=True).first()
-    r['oauth'] = {
-        'exists': auth is not None,
-        'valid': (auth.expires_at > timezone.now()) if auth else False,
-        'expires_at': str(auth.expires_at) if auth else None,
-    }
-
-    # 3. Кластеры
+    sku = int(getattr(settings, 'OZON_TEST_SKU', 0))
+    wh = int(getattr(settings, 'OZON_TEST_WAREHOUSE_ID', 0))
+    phone = '79111719087'
     client = OzonDeliveryClient()
-    viewport = {
-        "left_bottom": {"lat": lat - 0.45, "long": lon - 0.45},
-        "right_top": {"lat": lat + 0.45, "long": lon + 0.45}
-    }
-    clusters = client.get_pvz_clusters(viewport, zoom=10)
-    r['clusters_raw'] = clusters if 'error' in clusters else {'ok': True, 'count': len(clusters.get('clusters', []))}
 
-    ids = []
-    for c in clusters.get('clusters', []):
-        ids.extend([str(p) for p in c.get('map_point_ids', [])])
-    r['point_ids'] = len(ids)
-    ids = ids[:150]
+    candidates = [
+        "PICKUP", "POSTAMAT", "COURIER",
+        "DELIVERY_TYPE_PICKUP", "DELIVERY_TYPE_POSTAMAT", "DELIVERY_TYPE_COURIER",
+        "DELIVERY_TYPE_UNSPECIFIED",
+        1, 2, 3,
+    ]
+    results = {}
+    for dt in candidates:
+        try:
+            resp = client.calculate_checkout(
+                items=[{"sku": sku, "quantity": 1}],
+                map_point_id=int(pvz.map_point_id),
+                phone=phone, warehouse_id=wh, delivery_schema="MIX",
+                delivery_type=dt,
+            )
+            results[str(dt)] = resp if 'error' in resp else {'OK': True, 'options': len(resp.get('delivery_options', []))}
+        except Exception as e:
+            results[str(dt)] = {'exception': str(e)[:200]}
 
-    # 4. Детали (одна пачка)
-    if ids:
-        info = client.get_pvz_info(ids[:100])
-        r['info_raw'] = info if 'error' in info else {'ok': True, 'count': len(info.get('points', []))}
-        points = info.get('points', [])
-        r['first_point_city'] = points[0].get('delivery_method', {}).get('address_details', {}).get('city') if points else None
-
-    # 5. Пробуем сохранить ОДНУ точку и смотрим структуру
-    if points:
-        p = points[0]
-        r['first_point_structure'] = p  # <-- НОВОЕ: показываем всю структуру
-        dm = p.get('delivery_method', {})
-        addr = dm.get('address_details', {})
-        coord = dm.get('coordinates', {})
-        mp_id = dm.get('map_point_id')  # ← ИСПРАВЛЕНО
-        
-        r['map_point_id_from_top'] = mp_id
-        r['map_point_id_from_dm'] = dm.get('map_point_id')
-        
-        if not mp_id:
-            r['db_save'] = {'skipped': 'no map_point_id at top level'}
-        else:
-            try:
-                obj, created = OzonPVZ.objects.update_or_create(
-                    map_point_id=mp_id,
-                    defaults={
-                        'name': dm.get('name', ''), 
-                        'address': dm.get('address', ''),
-                        'city': addr.get('city', city), 
-                        'region': addr.get('region', ''),
-                        'lat': coord.get('lat'), 
-                        'lng': coord.get('long') or coord.get('lng'),
-                        'enabled': p.get('enabled', True),
-                    }
-                )
-                r['db_save'] = {'ok': True, 'created': created, 'saved_city': obj.city}
-            except Exception as e:
-                r['db_save'] = {'error': str(e)}
-
-    # 6. Финальный фильтр как в реальном коде
-    r['final_filter_count'] = OzonPVZ.objects.filter(city__icontains=city, enabled=True).count()
-    r['total_in_db'] = OzonPVZ.objects.count()
-    r['result'] = 'OK' if r['final_filter_count'] > 0 else 'ПУСТО на этапе ' + str(
-        'кластеры' if r['point_ids'] == 0 else
-        'детали' if 'info_raw' in r and 'error' in str(r.get('info_raw','')) else
-        'сохранение' if 'db_save' in r and 'error' in str(r.get('db_save','')) else
-        'фильтр по городу'
-    )
-    return JsonResponse(r, json_dumps_params={'ensure_ascii': False, 'indent': 2})
+    return JsonResponse({
+        'pvz_id': pvz.map_point_id, 'sku': sku, 'warehouse': wh,
+        'tried': results,
+    }, json_dumps_params={'ensure_ascii': False, 'indent': 2})

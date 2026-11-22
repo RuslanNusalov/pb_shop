@@ -140,22 +140,17 @@ class OzonDeliveryClient:
             auth='oauth'
         )
 
-    def calculate_checkout(self, items, map_point_id, phone, warehouse_id, delivery_schema="MIX"):
-        """
-        Рассчитывает стоимость доставки через Ozon.
-        """
+    def calculate_checkout(self, items, map_point_id, phone, warehouse_id,
+                       delivery_schema="MIX", delivery_type=None):
         payload = {
             "items": items,
             "warehouse_id": int(warehouse_id),
             "delivery_schema": delivery_schema,
-            "delivery_type": 3,  # ✅ число (3 = ПВЗ/Постамат),  # ← ДОБАВИТЬ: тип доставки (PVZ = пункт выдачи)
-            "customer": {
-                "phone": str(phone)
-            },
-            "map_point_id": int(map_point_id)
+            "customer": {"phone": str(phone)},
+            "map_point_id": int(map_point_id),
         }
-        
-        logger.info(f"📤 Ozon checkout payload: {payload}")
+        if delivery_type is not None:
+            payload["delivery_type"] = delivery_type
         return self._make_request('/v2/delivery/checkout', payload, auth='oauth')
 
     # ==========================================
