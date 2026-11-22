@@ -367,59 +367,65 @@ def ozon_pvz_list(request):
 
 @require_GET
 def ozon_delivery_checkout(request):
-    map_point_id = request.GET.get('map_point_id', '')
-    phone_raw = request.GET.get('phone', '')
-    
-    # 1. Очистка телефона (оставляем только цифры, 8 меняем на 7)
-    phone = ''.join(c for c in phone_raw if c.isdigit())
-    if phone.startswith('8'):
-        phone = '7' + phone[1:]
-    
-    if not phone or len(phone) < 11:
-        return HttpResponse("<p class='text-red-500 text-xs font-medium'>⚠️ Введите корректный номер телефона (минимум 11 цифр).</p>")
-    if not map_point_id:
-        return HttpResponse("<p class='text-red-500 text-xs'>Выберите пункт выдачи.</p>")
-
-    # 2. Получаем настройки (строго OZON_TEST_SKU)
-    test_sku_str = getattr(settings, 'OZON_TEST_SKU', None)
-    warehouse_id = getattr(settings, 'OZON_TEST_WAREHOUSE_ID', None)
-    
-    if not test_sku_str or not warehouse_id:
-        logger.error("❌ Отсутствуют OZON_TEST_SKU или OZON_TEST_WAREHOUSE_ID в настройках")
-        return HttpResponse("<p class='text-red-500 text-xs'>Ошибка конфигурации: не указан тестовый SKU или склад.</p>")
-
     try:
-        test_sku = int(test_sku_str)
-        warehouse_id = int(warehouse_id)
-        map_point_id = int(map_point_id)
-    except ValueError as e:
-        logger.error(f"❌ Ошибка преобразования типов: {e}")
-        return HttpResponse("<p class='text-red-500 text-xs'>Ошибка: SKU и warehouse_id должны быть числами.</p>")
+        map_point_id = request.GET.get('map_point_id', '')
+        phone_raw = request.GET.get('phone', '')
+        
+        logger.info(f"🔍 Получены параметры: map_point_id={map_point_id}, phone={phone_raw}")
+        
+        # 1. Очистка телефона
+        phone = ''.join(c for c in phone_raw if c.isdigit())
+        if phone.startswith('8'):
+            phone = '7' + phone[1:]
+        
+        if not phone or len(phone) < 11:
+            return HttpResponse("<p class='text-red-500 text-xs font-medium'>⚠️ Введите корректный номер телефона (минимум 11 цифр).</p>")
+        if not map_point_id:
+            return HttpResponse("<p class='text-red-500 text-xs'>Выберите пункт выдачи.</p>")
 
-    client = OzonDeliveryClient()
-    
-    logger.info(f"📦 Расчёт доставки: map_point_id={map_point_id}, phone={phone}, warehouse_id={warehouse_id}, sku={test_sku}")
-    
-    # 3. Формируем запрос: ключ "sku", значение int
-    response_data = client.calculate_checkout(
-        items=[{"sku": test_sku, "quantity": 1}],
-        map_point_id=map_point_id,
-        phone=phone,
-        warehouse_id=warehouse_id,
-        delivery_schema="MIX"
-    )
-    
-    logger.info(f"📊 Ответ Ozon Checkout: {response_data}")
-    
-    # 4. Обработка ответа
-    if 'error' in response_data:
-        logger.error(f"❌ Ozon вернул ошибку: {response_data['error']}")
-        return HttpResponse(f"<p class='text-red-500 text-xs font-medium'>⚠️ Ошибка расчёта: {response_data['error']}</p>")
-    
-    try:
+        # 2. Получаем настройки
+        test_sku_str = getattr(settings, 'OZON_TEST_SKU', None)
+        warehouse_id = getattr(settings, 'OZON_TEST_WAREHOUSE_ID', None)
+        
+        logger.info(f"⚙️ Настройки: OZON_TEST_SKU={test_sku_str}, WAREHOUSE_ID={warehouse_id}")
+        
+        if not test_sku_str or not warehouse_id:
+            logger.error("❌ Отсутствуют OZON_TEST_SKU или OZON_TEST_WAREHOUSE_ID")
+            return HttpResponse("<p class='text-red-500 text-xs'>Ошибка конфигурации: не указан тестовый SKU или склад.</p>")
+
+        try:
+            test_sku = int(test_sku_str)
+            warehouse_id = int(warehouse_id)
+            map_point_id = int(map_point_id)
+        except ValueError as e:
+            logger.error(f"❌ Ошибка преобразования типов: {e}")
+            return HttpResponse(f"<p class='text-red-500 text-xs'>Ошибка: SKU и warehouse_id должны быть числами. {e}</p>")
+
+        # 3. Вызываем Ozon API
+        from orders.ozon_client import OzonDeliveryClient
+        client = OzonDeliveryClient()
+        
+        logger.info(f"📦 Отправляем запрос: sku={test_sku}, map_point_id={map_point_id}, phone={phone}, warehouse_id={warehouse_id}")
+        
+        response_data = client.calculate_checkout(
+            items=[{"sku": test_sku, "quantity": 1}],
+            map_point_id=map_point_id,
+            phone=phone,
+            warehouse_id=warehouse_id,
+            delivery_schema="MIX"
+        )
+        
+        logger.info(f"📊 Ответ Ozon: {response_data}")
+        
+        # 4. Обработка ответа
+        if 'error' in response_data:
+            logger.error(f"❌ Ozon вернул ошибку: {response_data['error']}")
+            return HttpResponse(f"<p class='text-red-500 text-xs font-medium'>⚠️ Ошибка расчёта: {response_data['error']}</p>")
+        
+        # 5. Парсинг результата
         delivery_options = response_data.get('delivery_options', [])
         if not delivery_options:
-            logger.warning(f"⚠️ Нет вариантов доставки. Полный ответ: {response_data}")
+            logger.warning(f"⚠️ Нет вариантов доставки. Ответ: {response_data}")
             return HttpResponse("<p class='text-yellow-600 text-xs'>ℹ️ Доставка в этот пункт временно недоступна.</p>")
         
         option = delivery_options[0]
@@ -430,14 +436,20 @@ def ozon_delivery_checkout(request):
         max_days = delivery_days.get('max', 0)
         delivery_time = f"{min_days}-{max_days} дн." if min_days != max_days else f"{min_days} дн."
         
+        logger.info(f"✅ Успех: cost={cost}, delivery_time={delivery_time}")
+        
         return render(request, 'orders/partials/ozon_delivery_cost.html', {
             'cost': cost,
             'delivery_time': delivery_time,
             'map_point_id': map_point_id
         })
+        
     except Exception as e:
-        logger.error(f"❌ Ошибка парсинга ответа Ozon: {e}. Полный ответ: {response_data}")
-        return HttpResponse(f"<p class='text-red-500 text-xs font-medium'>⚠️ Ошибка обработки ответа: {str(e)[:100]}</p>")
+        import traceback
+        error_details = traceback.format_exc()
+        logger.error(f"💥 Критическая ошибка в ozon_delivery_checkout:\n{error_details}")
+        # Временно выводим детали ошибки в браузер (УДАЛИТЬ ПОСЛЕ ДИАГНОСТИКИ!)
+        return HttpResponse(f"<pre style='color:red;font-size:10px;'>ОШИБКА 500:\n{error_details}</pre>")
 
 
 # ==========================================
