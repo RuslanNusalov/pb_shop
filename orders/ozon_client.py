@@ -13,71 +13,98 @@ logger = logging.getLogger(__name__)
 
 class OzonDeliveryClient:
     def __init__(self):
-        # Для справочных методов (point/list, point/info) — Api-Key
-        self.client_id = str(getattr(settings, 'OZON_CLIENT_ID', '')).strip()
-        self.api_key = str(getattr(settings, 'OZON_API_KEY', '')).strip()
-        # Для методов доставки (map, checkout, create) — OAuth
-        self.oauth_client_id = getattr(settings, 'OZON_OAUTH_CLIENT_ID', '')
-        self.oauth_client_secret = getattr(settings, 'OZON_OAUTH_CLIENT_SECRET', '')
+        self.client_id = getattr(settings, 'OZON_OAUTH_CLIENT_ID', '')
+        self.client_secret = getattr(settings, 'OZON_OAUTH_CLIENT_SECRET', '')
         self.base_url = "https://api-seller.ozon.ru"
-
-    def _headers_api_key(self):
-        """Заголовки для методов с Api-Key авторизацией"""
-        return {
-            "Client-Id": self.client_id,
-            "Api-Key": self.api_key,
-            "Content-Type": "application/json",
-        }
-
-    def _headers_oauth(self):
-        """Заголовки для методов с OAuth Bearer токеном"""
-        return {
-            "Authorization": f"Bearer {self._get_active_token()}",
-            "Content-Type": "application/json",
-        }
-
+        self.token_url = "https://api-seller.ozon.ru/appstore-api/oauth/token"
+    
     def _get_active_token(self):
-        """Получает активный OAuth токен, обновляет если истекает"""
+        """
+        Возвращает активный access_token.
+        Если токен истекает через < 5 минут — обновляет его.
+        """
         auth_record = OzonAuth.objects.filter(is_active=True).first()
+        
         if not auth_record:
-            raise RuntimeError("Ozon OAuth не выполнен. Пройдите /orders/ozon/oauth/login/")
-        if auth_record.expires_at < timezone.now() + timedelta(minutes=5):
-            self._refresh_token(auth_record)
-            auth_record = OzonAuth.objects.filter(is_active=True).first()
+            raise Exception("Нет активного OAuth-токена. Пройдите авторизацию.")
+        
+        # Проверяем, не истекает ли токен в ближайшие 5 минут
+        time_until_expiry = auth_record.expires_at - timezone.now()
+        
+        if time_until_expiry < timedelta(minutes=5):
+            logger.info(f"⏰ Токен истекает через {time_until_expiry}. Обновляем...")
+            return self._refresh_token(auth_record)
+        
         return auth_record.access_token
-
+    
     def _refresh_token(self, auth_record):
-        """Обновляет OAuth токен через refresh_token"""
-        url = "https://xapi.ozon.ru/oauth/token"
-        headers = {
-            "Content-Type": "application/x-www-form-urlencoded",
-            "User-Agent": "Mozilla/5.0 (compatible; PBShopBot/1.0)",
-        }
-        payload = {
-            "client_id": self.oauth_client_id,
-            "client_secret": self.oauth_client_secret,
-            "grant_type": "refresh_token",
-            "refresh_token": auth_record.refresh_token,
-        }
-        response = requests.post(url, data=payload, headers=headers, timeout=15)
-        if response.status_code == 200:
+        """
+        Обновляет access_token через refresh_token.
+        """
+        if not auth_record.refresh_token:
+            logger.error("❌ Нет refresh_token. Требуется повторная авторизация.")
+            raise Exception("Нет refresh_token. Пройдите авторизацию заново.")
+        
+        try:
+            response = requests.post(
+                self.token_url,
+                data={
+                    "grant_type": "refresh_token",
+                    "client_id": self.client_id,
+                    "client_secret": self.client_secret,
+                    "refresh_token": auth_record.refresh_token,
+                },
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
+                timeout=10
+            )
+            
+            if response.status_code != 200:
+                logger.error(f"❌ Ошибка обновления токена: {response.status_code} {response.text}")
+                raise Exception(f"Ошибка обновления токена: {response.status_code}")
+            
             data = response.json()
+            
+            # Обновляем запись в БД
             auth_record.access_token = data['access_token']
-            auth_record.refresh_token = data.get('refresh_token', auth_record.refresh_token)
-            auth_record.expires_at = timezone.now() + timedelta(seconds=int(data.get('expires_in', 3600)))
+            auth_record.refresh_token = data['refresh_token']  # Ozon возвращает новый refresh_token
+            auth_record.expires_at = timezone.now() + timedelta(hours=1)  # access_token живёт 1 час
             auth_record.save()
-        else:
-            raise RuntimeError(f"Не удалось обновить токен Ozon: {response.text}")
-
+            
+            logger.info(f"✅ Токен успешно обновлён. Новый expires_at: {auth_record.expires_at}")
+            return data['access_token']
+            
+        except requests.exceptions.RequestException as e:
+            logger.error(f"❌ Ошибка запроса при обновлении токена: {e}")
+            raise Exception(f"Ошибка сети при обновлении токена: {e}")
+    
+    def _headers_oauth(self):
+        token = self._get_active_token()
+        return {
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+        }
+    
     def _make_request(self, path, payload, auth='oauth'):
         headers = self._headers_oauth() if auth == 'oauth' else self._headers_api_key()
         url = f"{self.base_url}{path}"
+        
         try:
             response = requests.post(url, json=payload, headers=headers, timeout=30)
+            
+            # Если 401 — пробуем обновить токен и повторить запрос
+            if response.status_code == 401 and auth == 'oauth':
+                logger.warning("⚠️ Получен 401. Пробуем обновить токен...")
+                auth_record = OzonAuth.objects.filter(is_active=True).first()
+                if auth_record:
+                    self._refresh_token(auth_record)
+                    # Повторяем запрос с новым токеном
+                    headers = self._headers_oauth()
+                    response = requests.post(url, json=payload, headers=headers, timeout=30)
+            
             response.raise_for_status()
             return response.json()
+            
         except requests.exceptions.HTTPError as e:
-            # ← ГЛАВНОЕ: читаем тело ошибки, которое Ozon теперь возвращает подробно
             try:
                 body = e.response.text[:500]
             except Exception:
@@ -87,66 +114,22 @@ class OzonDeliveryClient:
         except Exception as e:
             logger.error(f"Ozon API {path} -> {e}")
             return {"error": str(e)}
-
-    @staticmethod
-    def _normalize_phone(phone):
-        """Нормализует телефон к формату +7XXXXXXXXXX"""
-        digits = ''.join(c for c in str(phone) if c.isdigit())
-        if digits.startswith('8') and len(digits) == 11:
-            digits = '7' + digits[1:]
-        if not digits.startswith('7') and len(digits) == 10:
-            digits = '7' + digits
-        if len(digits) >= 11 and digits.startswith('7'):
-            return '+' + digits
-        return "+7" + digits
-
-    # ==========================================
-    # МЕТОДЫ ДЛЯ РАБОТЫ С ПВЗ
-    # ==========================================
-
+    
     def get_pvz_clusters(self, viewport, zoom=10):
-            """
-            Получает кластеры точек самовывоза по viewport карты.
-            Авторизация: OAuth Bearer токен
-            """
-            return self._make_request(
-                '/v1/delivery/map',
-                {"viewport": viewport, "zoom": zoom},
-                auth='oauth'
-            )
+        payload = {
+            "viewport": viewport,
+            "zoom": zoom
+        }
+        return self._make_request('/v1/delivery/map', payload, auth='oauth')
     
     def get_pvz_info(self, map_point_ids):
-        return self._make_request(
-            '/v1/delivery/point/info',
-            {"map_point_ids": [str(pid) for pid in map_point_ids]},
-            auth='oauth'  # ← ДОЛЖНО БЫТЬ oauth, НЕ api_key
-        )
-
-    def get_all_pvz_points(self):
-        return self._make_request('/v1/delivery/point/list', {}, auth='oauth')
-
-
-    # ==========================================
-    # МЕТОДЫ ДЛЯ РАСЧЁТА ДОСТАВКИ
-    # ==========================================
-
-    def check_delivery(self, phone):
-        """
-        Проверяет доступность доставки по телефону.
-        Авторизация: OAuth
-        """
-        return self._make_request(
-            '/v1/delivery/check',
-            {"phone": self._normalize_phone(phone)},
-            auth='oauth'
-        )
-
+        payload = {
+            "map_point_ids": [int(pid) for pid in map_point_ids]
+        }
+        return self._make_request('/v1/delivery/point/info', payload, auth='oauth')
+    
     def calculate_checkout(self, items, map_point_id, phone, warehouse_id,
-                       delivery_schema="MIX", delivery_type="pick_up"):
-        """
-        Рассчитывает стоимость доставки через Ozon.
-        delivery_type: "pick_up" (ПВЗ/постамат) или "courier" (курьер)
-        """
+                           delivery_schema="MIX", delivery_type="pick_up"):
         payload = {
             "buyer_phone": str(phone),
             "delivery_schema": delivery_schema,
@@ -162,14 +145,3 @@ class OzonDeliveryClient:
         
         logger.info(f"📤 Ozon checkout payload: {json.dumps(payload, ensure_ascii=False)}")
         return self._make_request('/v2/delivery/checkout', payload, auth='oauth')
-
-    # ==========================================
-    # МЕТОДЫ ДЛЯ СОЗДАНИЯ ЗАКАЗА
-    # ==========================================
-
-    def create_order(self, order_data):
-        """
-        Создаёт заказ в Ozon.
-        Авторизация: OAuth
-        """
-        return self._make_request('/v2/order/create', order_data, auth='oauth')

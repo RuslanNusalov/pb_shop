@@ -278,18 +278,18 @@ class OrderItem(models.Model):
 
 
 class OzonAuth(models.Model):
-    """Хранит OAuth токены для доступа к Ozon Delivery API"""
-    access_token = models.TextField(verbose_name="Access Token")
-    refresh_token = models.TextField(verbose_name="Refresh Token")
-    expires_at = models.DateTimeField(verbose_name="Истекает")
-    is_active = models.BooleanField(default=True, verbose_name="Активен")
+    access_token = models.TextField()
+    refresh_token = models.TextField(blank=True, null=True)  # ← ДОБАВИТЬ
+    expires_at = models.DateTimeField()
+    is_active = models.BooleanField(default=True)
+
 
     class Meta:
         verbose_name = 'Ozon Авторизация'
         verbose_name_plural = 'Ozon Авторизация'
 
     def __str__(self):
-        return f"Ozon Token (expires: {self.expires_at})"
+        return f"OzonAuth (expires: {self.expires_at})"
 
 
 class OzonPVZ(models.Model):
