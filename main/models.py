@@ -73,6 +73,12 @@ class Product(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     is_active = models.BooleanField(default=True)
+    ozon_sku = models.CharField(
+        max_length=20,
+        blank=True,
+        null=True,
+        help_text="Числовой SKU товара на Ozon (для расчёта доставки)"
+    )
 
     def save(self, *args, **kwargs):
         if not self.slug:

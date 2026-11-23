@@ -46,80 +46,48 @@ def ozon_oauth_login(request):
 
 
 def ozon_oauth_callback(request):
-    """Шаг 2: Обмен code на токены с полной диагностикой"""
+    code = request.GET.get('code')
+    if not code:
+        return HttpResponse("Ошибка: нет кода авторизации")
+    
+    client_id = getattr(settings, 'OZON_OAUTH_CLIENT_ID', '')
+    client_secret = getattr(settings, 'OZON_OAUTH_CLIENT_SECRET', '')
+    redirect_uri = getattr(settings, 'OZON_OAUTH_REDIRECT_URI', '')
+    
     try:
-        code = request.GET.get('code')
-        returned_state = request.GET.get('state')
-        saved_state = request.session.get('ozon_oauth_state')
-        
-        if not code:
-            return HttpResponse(f"❌ Нет code. Параметры: {request.GET.dict()}", status=400)
-        
-        if returned_state != saved_state:
-            return HttpResponse(
-                f"❌ Ошибка state.<br>Получен: {returned_state}<br>Ожидался: {saved_state}", 
-                status=403
-            )
-            
-        if 'ozon_oauth_state' in request.session:
-            del request.session['ozon_oauth_state']
-
-        payload = {
-            "grant_type": "authorization_code",
-            "client_id": settings.OZON_OAUTH_CLIENT_ID,
-            "client_secret": settings.OZON_OAUTH_CLIENT_SECRET,
-            "code": code,
-            "redirect_uri": settings.OZON_OAUTH_REDIRECT_URI
-        }
-
-        # ✅ ВАРИАНТ 1: JSON вместо form-urlencoded
-        headers_json = {
-            "Content-Type": "application/json",
-            "User-Agent": "Mozilla/5.0 (compatible; PBShopBot/1.0)"
-        }
-        response = requests.post(OZON_TOKEN_URL, json=payload, headers=headers_json, timeout=15)
-        
-        # 🔍 Собираем ВСЮ информацию об ответе
-        debug_info = (
-            f"<h2>🔍 Диагностика ответа от {OZON_TOKEN_URL}</h2>"
-            f"<p><b>Статус:</b> {response.status_code}</p>"
-            f"<p><b>Заголовки:</b><pre>{dict(response.headers)}</pre></p>"
-            f"<p><b>Тело ответа (raw):</b><pre>{response.text[:2000]}</pre></p>"
-            f"<hr>"
+        response = requests.post(
+            "https://api-seller.ozon.ru/appstore-api/oauth/token",
+            data={
+                "grant_type": "authorization_code",
+                "client_id": client_id,
+                "client_secret": client_secret,
+                "redirect_uri": redirect_uri,
+                "code": code,
+            },
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+            timeout=10
         )
         
-        # Если JSON — парсим и сохраняем
-        if response.status_code == 200:
-            data = response.json()
-            
-            # ✅ Безопасное приведение expires_in к int (Ozon может вернуть строку!)
-            expires_in = int(data.get('expires_in', 3600))
-            
-            OzonAuth.objects.update_or_create(
-                is_active=True,
-                defaults={
-                    'access_token': data['access_token'],
-                    'refresh_token': data.get('refresh_token', ''),
-                    'expires_at': timezone.now() + timedelta(seconds=expires_in)
-                }
-            )
-            return HttpResponse(
-                "<h1>✅ Авторизация Ozon Delivery прошла успешно!</h1>"
-                f"<p>Токен: {data['access_token'][:30]}...</p>"
-                f"<p>Refresh: {data.get('refresh_token', '')[:30]}...</p>"
-                f"<p>Истекает через: {expires_in} секунд</p>"
-            )
-        else:
-            return HttpResponse(
-                debug_info + 
-                f"<h1>❌ Ozon вернул ошибку: {response.status_code}</h1>"
-            )
-            
+        if response.status_code != 200:
+            logger.error(f"Ошибка получения токена: {response.status_code} {response.text}")
+            return HttpResponse(f"Ошибка получения токена: {response.status_code}")
+        
+        data = response.json()
+        
+        # Деактивируем старые токены
+        OzonAuth.objects.update(is_active=False)
+        
+        # Создаём новую запись с access_token И refresh_token
+        OzonAuth.objects.create(
+            access_token=data['access_token'],
+            refresh_token=data.get('refresh_token', ''),  # ← СОХРАНЯЕМ refresh_token
+            expires_at=timezone.now() + timedelta(hours=1),
+            is_active=True
+        )
+        
+        logger.info("✅ OAuth-токен успешно получен и сохранён")
+        return HttpResponse("✅ Авторизация Ozon Delivery прошла успешно! Токен сохранён.")
+        
     except Exception as e:
-        import traceback
-        tb = traceback.format_exc()
-        logger.error(f"CRITICAL ERROR: {tb}")
-        return HttpResponse(
-            f"<h1>❌ Внутренняя ошибка</h1><pre>{tb}</pre>",
-            status=500
-        )
+        logger.error(f"Ошибка в callback: {e}")
+        return HttpResponse(f"Ошибка: {e}")
