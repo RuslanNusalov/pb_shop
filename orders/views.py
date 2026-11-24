@@ -530,22 +530,21 @@ def temp_sync_skus(request):
                 
                 product = None
                 
-                # По артикулу
-                if article:
+                # Ищем ТОЛЬКО по названию, так как поле 'article' отсутствует или называется иначе
+                if name:
+                    name_clean = name.strip()
                     try:
-                        product = Product.objects.get(article=article)
+                        # 1. Пробуем точное совпадение названия
+                        product = Product.objects.get(name__iexact=name_clean)
                     except Product.DoesNotExist:
                         pass
                     except Product.MultipleObjectsReturned:
-                        product = Product.objects.filter(article=article).first()
-                
-                # По названию
-                if not product and name:
-                    name_clean = name.strip()
-                    try:
-                        product = Product.objects.get(name__iexact=name_clean)
-                    except Product.DoesNotExist:
-                        products = Product.objects.filter(name__icontains=name_clean[:30])
+                        # Если точных совпадений несколько, берем первое
+                        product = Product.objects.filter(name__iexact=name_clean).first()
+                    
+                    # 2. Если не нашли, пробуем частичное совпадение по началу названия (первые 40 символов)
+                    if not product and len(name_clean) > 5:
+                        products = Product.objects.filter(name__icontains=name_clean[:40])
                         if products.count() == 1:
                             product = products.first()
                 
