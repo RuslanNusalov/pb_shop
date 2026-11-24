@@ -2,6 +2,7 @@ import csv
 import logging
 import os
 import time
+import traceback
 from decimal import Decimal
 
 import requests
@@ -470,66 +471,109 @@ def temp_sync_skus(request):
     if not request.user.is_superuser:
         return JsonResponse({'error': 'Только для администраторов'}, status=403)
     
-    csv_path = '/app/ozon_products.csv'  # Путь в контейнере Amvera
-    
-    if not os.path.exists(csv_path):
-        return JsonResponse({'error': f'Файл не найден: {csv_path}'}, status=404)
-    
-    # Читаем CSV
-    with open(csv_path, 'r', encoding='utf-8') as f:
-        reader = csv.DictReader(f)
-        rows = list(reader)
-    
-    updated = 0
-    not_found = 0
-    
-    for row in rows:
-        ozon_sku = row.get('SKU')
-        name = row.get('Название товара')
-        article = row.get('Артикул')
+    try:
+        # 1. Ищем файл в разных возможных местах
+        possible_paths = [
+            '/app/ozon_products.csv',
+            '/app/pb_shop/ozon_products.csv',
+            '/app/pb_shop/pb_shop/ozon_products.csv',
+            os.path.join(os.path.dirname(__file__), '..', '..', 'ozon_products.csv'),
+        ]
         
-        if not ozon_sku or not name:
-            continue
+        csv_path = None
+        for path in possible_paths:
+            if os.path.exists(path):
+                csv_path = path
+                break
         
-        # Очищаем SKU
-        ozon_sku_clean = ''.join(c for c in str(ozon_sku) if c.isdigit())
-        if not ozon_sku_clean:
-            continue
+        if not csv_path:
+            # Показываем, какие файлы есть в /app
+            app_files = os.listdir('/app') if os.path.exists('/app') else []
+            return JsonResponse({
+                'error': 'Файл CSV не найден',
+                'searched_paths': possible_paths,
+                'files_in_app': app_files[:50]  # первые 50 файлов
+            }, status=404)
         
-        # Ищем товар
+        # 2. Читаем CSV
+        with open(csv_path, 'r', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            rows = list(reader)
+        
+        if not rows:
+            return JsonResponse({'error': 'CSV файл пустой', 'path': csv_path})
+        
+        # 3. Показываем первые 3 строки для проверки
+        sample = rows[:3]
+        
+        # 4. Запускаем синхронизацию
         from products.models import Product
         from django.db.models import Q
         
-        product = None
+        updated = 0
+        not_found = 0
+        errors = []
         
-        # По артикулу
-        if article:
+        for i, row in enumerate(rows):
             try:
-                product = Product.objects.get(article=article)
-            except Product.DoesNotExist:
-                pass
+                ozon_sku = row.get('SKU', '')
+                name = row.get('Название товара', '')
+                article = row.get('Артикул', '')
+                
+                if not ozon_sku or not name:
+                    continue
+                
+                ozon_sku_clean = ''.join(c for c in str(ozon_sku) if c.isdigit())
+                if not ozon_sku_clean:
+                    continue
+                
+                product = None
+                
+                # По артикулу
+                if article:
+                    try:
+                        product = Product.objects.get(article=article)
+                    except Product.DoesNotExist:
+                        pass
+                    except Product.MultipleObjectsReturned:
+                        product = Product.objects.filter(article=article).first()
+                
+                # По названию
+                if not product and name:
+                    name_clean = name.strip()
+                    try:
+                        product = Product.objects.get(name__iexact=name_clean)
+                    except Product.DoesNotExist:
+                        products = Product.objects.filter(name__icontains=name_clean[:30])
+                        if products.count() == 1:
+                            product = products.first()
+                
+                if product:
+                    if product.ozon_sku != ozon_sku_clean:
+                        product.ozon_sku = ozon_sku_clean
+                        product.save()
+                        updated += 1
+                else:
+                    not_found += 1
+                    if not_found <= 3:
+                        errors.append(f"Не найден: {name} (артикул: {article})")
+                        
+            except Exception as e:
+                errors.append(f"Строка {i}: {str(e)[:100]}")
         
-        # По названию
-        if not product and name:
-            try:
-                product = Product.objects.get(name__iexact=name.strip())
-            except Product.DoesNotExist:
-                # Пробуем частичное совпадение
-                products = Product.objects.filter(name__icontains=name.strip()[:30])
-                if products.count() == 1:
-                    product = products.first()
+        return JsonResponse({
+            'success': True,
+            'file_found': csv_path,
+            'total_rows': len(rows),
+            'updated': updated,
+            'not_found': not_found,
+            'sample_rows': sample,
+            'errors': errors[:10]
+        }, json_dumps_params={'ensure_ascii': False})
         
-        if product:
-            if product.ozon_sku != ozon_sku_clean:
-                product.ozon_sku = ozon_sku_clean
-                product.save()
-                updated += 1
-        else:
-            not_found += 1
-    
-    return JsonResponse({
-        'success': True,
-        'updated': updated,
-        'not_found': not_found,
-        'total_rows': len(rows)
-    })
+    except Exception as e:
+        error_details = traceback.format_exc()
+        return JsonResponse({
+            'error': str(e),
+            'traceback': error_details
+        }, status=500)
