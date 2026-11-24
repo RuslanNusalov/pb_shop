@@ -470,115 +470,79 @@ def ozon_delivery_checkout(request):
 
 
 def temp_sync_skus(request):
-    """Временный endpoint для синхронизации SKU по тексту в кавычках. УДАЛИТЬ ПОСЛЕ ИСПОЛЬЗОВАНИЯ!"""
+    """Временный endpoint для синхронизации SKU. УДАЛИТЬ ПОСЛЕ ИСПОЛЬЗОВАНИЯ!"""
     if not request.user.is_superuser:
         return JsonResponse({'error': 'Только для администраторов'}, status=403)
     
     try:
-        possible_paths = [
-            '/app/ozon_products.csv',
-            '/app/pb_shop/ozon_products.csv',
-        ]
-        
-        csv_path = None
-        for path in possible_paths:
-            if os.path.exists(path):
-                csv_path = path
-                break
+        possible_paths = ['/app/ozon_products.csv', '/app/pb_shop/ozon_products.csv']
+        csv_path = next((p for p in possible_paths if os.path.exists(p)), None)
         
         if not csv_path:
-            return JsonResponse({'error': 'Файл CSV не найден', 'paths': possible_paths}, status=404)
+            return JsonResponse({'error': 'Файл CSV не найден'}, status=404)
         
         with open(csv_path, 'r', encoding='utf-8') as f:
-            reader = csv.DictReader(f)
-            rows = list(reader)
+            rows = list(csv.DictReader(f))
         
         from main.models import Product
         
         updated = 0
         not_found = 0
         matched_examples = []
-        errors = []
         
-        for i, row in enumerate(rows):
-            try:
-                ozon_sku = row.get('SKU', '')
-                name_csv = row.get('Название товара', '')
+        # Вспомогательная функция для определения типа товара (первое слово)
+        def get_type(name):
+            if not name: return ""
+            return name.split()[0].lower().rstrip(',.')
+
+        for row in rows:
+            ozon_sku = ''.join(c for c in str(row.get('SKU', '')) if c.isdigit())
+            name_csv = row.get('Название товара', '')
+            
+            if not ozon_sku or not name_csv:
+                continue
+            
+            # 1. Извлекаем тип и ключ из CSV
+            csv_type = get_type(name_csv)
+            csv_quotes = re.findall(r'"([^"]+)"', name_csv)
+            if not csv_quotes: continue
+            csv_key = csv_quotes[0].strip().lower()
+            
+            # 2. Ищем совпадение в БД
+            product = None
+            for db_product in Product.objects.all():
+                db_type = get_type(db_product.name)
+                db_quotes = re.findall(r'"([^"]+)"', db_product.name)
+                if not db_quotes: continue
+                db_key = db_quotes[0].strip().lower()
                 
-                if not ozon_sku or not name_csv:
-                    continue
-                
-                ozon_sku_clean = ''.join(c for c in str(ozon_sku) if c.isdigit())
-                if not ozon_sku_clean:
-                    continue
-                
-                # === ИЗВЛЕКАЕМ ТЕКСТ В КАВЫЧКАХ ИЗ CSV ===
-                csv_quotes = re.findall(r'"([^"]+)"', name_csv)
-                if not csv_quotes:
-                    # Пробуем одинарные кавычки
-                    csv_quotes = re.findall(r"'([^']+)'", name_csv)
-                
-                if not csv_quotes:
-                    continue  # Нет кавычек в CSV — пропускаем
-                
-                # Берём первый текст в кавычках (основное название принта)
-                csv_key = csv_quotes[0].strip().lower()
-                
-                # === ИЩЕМ ТОВАР В БД ПО ТЕКСТУ В КАВЫЧКАХ ===
-                product = None
-                
-                # Получаем все товары из БД
-                for db_product in Product.objects.all():
-                    # Извлекаем текст в кавычках из названия в БД
-                    db_quotes = re.findall(r'"([^"]+)"', db_product.name)
-                    if not db_quotes:
-                        db_quotes = re.findall(r"'([^']+)'", db_product.name)
-                    
-                    if not db_quotes:
-                        continue
-                    
-                    db_key = db_quotes[0].strip().lower()
-                    
-                    # Сравниваем ключи
-                    if csv_key == db_key:
-                        product = db_product
-                        break
-                
-                # Если нашли — обновляем SKU
-                if product:
-                    if str(product.ozon_sku) != ozon_sku_clean:
-                        Product.objects.filter(id=product.id).update(ozon_sku=ozon_sku_clean)
-                        updated += 1
-                        
-                        # Сохраняем примеры для отчёта (первые 5)
-                        if len(matched_examples) < 5:
-                            matched_examples.append({
-                                'db_name': db_product.name,
-                                'csv_name': name_csv,
-                                'matched_key': csv_key,
-                                'sku': ozon_sku_clean
-                            })
-                else:
-                    not_found += 1
-                    if not_found <= 3:
-                        errors.append(f"Не найден: '{name_csv[:60]}' (ключ: {csv_key})")
-                        
-            except Exception as e:
-                errors.append(f"Строка {i}: {str(e)[:150]}")
+                # ГЛАВНОЕ ИЗМЕНЕНИЕ: Сравниваем И тип, И текст в кавычках
+                if csv_type == db_type and csv_key == db_key:
+                    product = db_product
+                    break # Берем первое совпадение и выходим
+            
+            # 3. Обновляем
+            if product:
+                if str(product.ozon_sku) != ozon_sku_clean:
+                    Product.objects.filter(id=product.id).update(ozon_sku=ozon_sku)
+                    updated += 1
+                    if len(matched_examples) < 3:
+                        matched_examples.append({
+                            'type': csv_type,
+                            'key': csv_key,
+                            'db_name': product.name,
+                            'sku': ozon_sku
+                        })
+            else:
+                not_found += 1
         
         return JsonResponse({
             'success': True,
-            'file': csv_path,
-            'total_rows': len(rows),
             'updated': updated,
             'not_found': not_found,
-            'matched_examples': matched_examples,
-            'errors': errors[:10]
+            'matched_examples': matched_examples
         }, json_dumps_params={'ensure_ascii': False})
         
     except Exception as e:
         import traceback
-        return JsonResponse({
-            'error': str(e),
-            'traceback': traceback.format_exc()
-        }, status=500)
+        return JsonResponse({'error': str(e), 'traceback': traceback.format_exc()}, status=500)
