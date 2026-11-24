@@ -507,8 +507,9 @@ def temp_sync_skus(request):
         sample = rows[:3]
         
         # 4. Запускаем синхронизацию
-        from products.models import Product
         from django.db.models import Q
+
+        from main.models import Product
         
         updated = 0
         not_found = 0
