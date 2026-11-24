@@ -493,7 +493,7 @@ def temp_sync_skus(request):
             reader = csv.DictReader(f)
             rows = list(reader)
         
-        from products.models import Product
+        from main.models import Product
         
         updated = 0
         not_found = 0
