@@ -469,10 +469,8 @@ def ozon_delivery_checkout(request):
 
 
 
-
-
 def temp_sync_skus(request):
-    """Временный endpoint для синхронизации SKU. УДАЛИТЬ ПОСЛЕ ИСПОЛЬЗОВАНИЯ!"""
+    """Временный endpoint для синхронизации SKU по тексту в кавычках. УДАЛИТЬ ПОСЛЕ ИСПОЛЬЗОВАНИЯ!"""
     if not request.user.is_superuser:
         return JsonResponse({'error': 'Только для администраторов'}, status=403)
     
@@ -495,30 +493,91 @@ def temp_sync_skus(request):
             reader = csv.DictReader(f)
             rows = list(reader)
         
-        from main.models import Product
+        from products.models import Product
         
-        # === ДИАГНОСТИКА: показываем первые 10 товаров из БД ===
-        db_products = Product.objects.all()[:10]
-        db_names = [
-            {
-                'id': p.id,
-                'name': p.name,
-                'ozon_sku': p.ozon_sku,
-            }
-            for p in db_products
-        ]
+        updated = 0
+        not_found = 0
+        matched_examples = []
+        errors = []
         
-        total_in_db = Product.objects.count()
+        for i, row in enumerate(rows):
+            try:
+                ozon_sku = row.get('SKU', '')
+                name_csv = row.get('Название товара', '')
+                
+                if not ozon_sku or not name_csv:
+                    continue
+                
+                ozon_sku_clean = ''.join(c for c in str(ozon_sku) if c.isdigit())
+                if not ozon_sku_clean:
+                    continue
+                
+                # === ИЗВЛЕКАЕМ ТЕКСТ В КАВЫЧКАХ ИЗ CSV ===
+                csv_quotes = re.findall(r'"([^"]+)"', name_csv)
+                if not csv_quotes:
+                    # Пробуем одинарные кавычки
+                    csv_quotes = re.findall(r"'([^']+)'", name_csv)
+                
+                if not csv_quotes:
+                    continue  # Нет кавычек в CSV — пропускаем
+                
+                # Берём первый текст в кавычках (основное название принта)
+                csv_key = csv_quotes[0].strip().lower()
+                
+                # === ИЩЕМ ТОВАР В БД ПО ТЕКСТУ В КАВЫЧКАХ ===
+                product = None
+                
+                # Получаем все товары из БД
+                for db_product in Product.objects.all():
+                    # Извлекаем текст в кавычках из названия в БД
+                    db_quotes = re.findall(r'"([^"]+)"', db_product.name)
+                    if not db_quotes:
+                        db_quotes = re.findall(r"'([^']+)'", db_product.name)
+                    
+                    if not db_quotes:
+                        continue
+                    
+                    db_key = db_quotes[0].strip().lower()
+                    
+                    # Сравниваем ключи
+                    if csv_key == db_key:
+                        product = db_product
+                        break
+                
+                # Если нашли — обновляем SKU
+                if product:
+                    if str(product.ozon_sku) != ozon_sku_clean:
+                        Product.objects.filter(id=product.id).update(ozon_sku=ozon_sku_clean)
+                        updated += 1
+                        
+                        # Сохраняем примеры для отчёта (первые 5)
+                        if len(matched_examples) < 5:
+                            matched_examples.append({
+                                'db_name': db_product.name,
+                                'csv_name': name_csv,
+                                'matched_key': csv_key,
+                                'sku': ozon_sku_clean
+                            })
+                else:
+                    not_found += 1
+                    if not_found <= 3:
+                        errors.append(f"Не найден: '{name_csv[:60]}' (ключ: {csv_key})")
+                        
+            except Exception as e:
+                errors.append(f"Строка {i}: {str(e)[:150]}")
         
         return JsonResponse({
-            'diagnostic': True,
-            'total_products_in_db': total_in_db,
-            'first_10_products_in_db': db_names,
-            'csv_sample': rows[:3],
-            'message': 'Сравните названия из БД и CSV. Пришлите мне скриншот или текст этого JSON.'
+            'success': True,
+            'file': csv_path,
+            'total_rows': len(rows),
+            'updated': updated,
+            'not_found': not_found,
+            'matched_examples': matched_examples,
+            'errors': errors[:10]
         }, json_dumps_params={'ensure_ascii': False})
         
     except Exception as e:
+        import traceback
         return JsonResponse({
             'error': str(e),
             'traceback': traceback.format_exc()
