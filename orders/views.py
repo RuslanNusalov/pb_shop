@@ -467,34 +467,102 @@ def ozon_delivery_checkout(request):
 
 
 
+
 def temp_sync_skus(request):
-    """Только диагностика покрытия SKU. УДАЛИТЬ ПОСЛЕ ИСПОЛЬЗОВАНИЯ!"""
+    """Улучшенная синхронизация SKU. УДАЛИТЬ ПОСЛЕ ИСПОЛЬЗОВАНИЯ!"""
     if not request.user.is_superuser:
         return JsonResponse({'error': 'Только для администраторов'}, status=403)
     
-    from main.models import Product
-    
-    total = Product.objects.count()
-    with_sku = Product.objects.filter(ozon_sku__isnull=False).exclude(ozon_sku='').count()
-    without_sku = total - with_sku
-    
-    # Товары с SKU (первые 10)
-    with_sku_list = [
-        {'name': p.name, 'sku': p.ozon_sku}
-        for p in Product.objects.filter(ozon_sku__isnull=False).exclude(ozon_sku='')[:10]
-    ]
-    
-    # Товары без SKU
-    without_sku_list = [
-        {'id': p.id, 'name': p.name}
-        for p in Product.objects.filter(ozon_sku__isnull=True)
-    ]
-    
-    return JsonResponse({
-        'total_products': total,
-        'with_sku': with_sku,
-        'without_sku': without_sku,
-        'coverage_percent': round(with_sku / total * 100, 1) if total else 0,
-        'examples_with_sku': with_sku_list,
-        'products_without_sku': without_sku_list
-    }, json_dumps_params={'ensure_ascii': False})
+    try:
+        possible_paths = ['/app/ozon_products.csv', '/app/pb_shop/ozon_products.csv']
+        csv_path = next((p for p in possible_paths if os.path.exists(p)), None)
+        
+        if not csv_path:
+            return JsonResponse({'error': 'Файл CSV не найден'}, status=404)
+        
+        with open(csv_path, 'r', encoding='utf-8') as f:
+            rows = list(csv.DictReader(f))
+        
+        from main.models import Product
+        
+        updated = 0
+        not_found = 0
+        matched_examples = []
+        
+        # Улучшенная функция извлечения типа (только первое слово)
+        def get_type(name):
+            if not name: return ""
+            return name.split()[0].lower().rstrip(',.')
+        
+        # Улучшенная функция извлечения ключа (убираем пробелы)
+        def get_key(name):
+            quotes = re.findall(r'"([^"]+)"', name)
+            if not quotes:
+                quotes = re.findall(r"'([^']+)'", name)
+            if not quotes:
+                return ""
+            # Убираем пробелы в начале и конце
+            return quotes[0].strip().lower()
+        
+        for row in rows:
+            ozon_sku = ''.join(c for c in str(row.get('SKU', '')) if c.isdigit())
+            name_csv = row.get('Название товара', '')
+            
+            if not ozon_sku or not name_csv:
+                continue
+            
+            csv_type = get_type(name_csv)
+            csv_key = get_key(name_csv)
+            
+            if not csv_key:
+                continue
+            
+            # Ищем совпадение в БД
+            product = None
+            for db_product in Product.objects.all():
+                # Пропускаем товары, у которых уже есть SKU
+                if db_product.ozon_sku:
+                    continue
+                
+                db_type = get_type(db_product.name)
+                db_key = get_key(db_product.name)
+                
+                # Сравниваем тип и ключ
+                if csv_type == db_type and csv_key == db_key:
+                    product = db_product
+                    break
+            
+            if product:
+                Product.objects.filter(id=product.id).update(ozon_sku=ozon_sku)
+                updated += 1
+                if len(matched_examples) < 3:
+                    matched_examples.append({
+                        'type': csv_type,
+                        'key': csv_key,
+                        'db_name': product.name,
+                        'sku': ozon_sku
+                    })
+            else:
+                not_found += 1
+        
+        # Проверка покрытия
+        total_db = Product.objects.count()
+        with_sku = Product.objects.filter(ozon_sku__isnull=False).exclude(ozon_sku='').count()
+        without_sku = total_db - with_sku
+        
+        return JsonResponse({
+            'success': True,
+            'updated': updated,
+            'not_found': not_found,
+            'coverage': {
+                'total': total_db,
+                'with_sku': with_sku,
+                'without_sku': without_sku,
+                'percent': round(with_sku / total_db * 100, 1) if total_db else 0
+            },
+            'matched_examples': matched_examples
+        }, json_dumps_params={'ensure_ascii': False})
+        
+    except Exception as e:
+        import traceback
+        return JsonResponse({'error': str(e), 'traceback': traceback.format_exc()}, status=500)
