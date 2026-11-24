@@ -469,10 +469,7 @@ def ozon_delivery_checkout(request):
 
 
 
-from django.http import JsonResponse
-import csv
-import os
-import traceback
+
 
 def temp_sync_skus(request):
     """Временный endpoint для синхронизации SKU. УДАЛИТЬ ПОСЛЕ ИСПОЛЬЗОВАНИЯ!"""
@@ -498,7 +495,7 @@ def temp_sync_skus(request):
             reader = csv.DictReader(f)
             rows = list(reader)
         
-        from products.models import Product
+        from main.models import Product
         
         # === ДИАГНОСТИКА: показываем первые 10 товаров из БД ===
         db_products = Product.objects.all()[:10]
