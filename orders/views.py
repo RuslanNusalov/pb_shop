@@ -472,7 +472,7 @@ def temp_sync_skus(request):
     if not request.user.is_superuser:
         return JsonResponse({'error': 'Только для администраторов'}, status=403)
     
-    from products.models import Product
+    from main.models import Product
     
     total = Product.objects.count()
     with_sku = Product.objects.filter(ozon_sku__isnull=False).exclude(ozon_sku='').count()
