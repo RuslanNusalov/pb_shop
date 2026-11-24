@@ -523,7 +523,7 @@ def temp_sync_skus(request):
             
             # 3. Обновляем
             if product:
-                if str(product.ozon_sku) != ozon_sku_clean:
+                if str(product.ozon_sku) != ozon_sku:
                     Product.objects.filter(id=product.id).update(ozon_sku=ozon_sku)
                     updated += 1
                     if len(matched_examples) < 3:
