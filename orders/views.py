@@ -469,6 +469,11 @@ def ozon_delivery_checkout(request):
 
 
 
+from django.http import JsonResponse
+import csv
+import os
+import traceback
+
 def temp_sync_skus(request):
     """Временный endpoint для синхронизации SKU. УДАЛИТЬ ПОСЛЕ ИСПОЛЬЗОВАНИЯ!"""
     if not request.user.is_superuser:
@@ -493,96 +498,27 @@ def temp_sync_skus(request):
             reader = csv.DictReader(f)
             rows = list(reader)
         
-        from main.models import Product
+        from products.models import Product
         
-        updated = 0
-        not_found = 0
-        errors = []
-        skipped = 0
+        # === ДИАГНОСТИКА: показываем первые 10 товаров из БД ===
+        db_products = Product.objects.all()[:10]
+        db_names = [
+            {
+                'id': p.id,
+                'name': p.name,
+                'ozon_sku': p.ozon_sku,
+            }
+            for p in db_products
+        ]
         
-        for i, row in enumerate(rows):
-            try:
-                ozon_sku = row.get('SKU', '')
-                name_csv = row.get('Название товара', '')
-                article = row.get('Артикул', '')
-                
-                if not ozon_sku or not name_csv:
-                    skipped += 1
-                    continue
-                
-                ozon_sku_clean = ''.join(c for c in str(ozon_sku) if c.isdigit())
-                if not ozon_sku_clean:
-                    continue
-                
-                # === УЛУЧШЕННЫЙ ПОИСК ПО НАЗВАНИЮ ===
-                # 1. Берём только часть до запятой (часто в CSV название длиннее)
-                name_main = name_csv.split(',')[0].strip()
-                # 2. Убираем кавычки
-                name_main = name_main.replace('"', '').replace("'", "").strip()
-                
-                product = None
-                
-                # Стратегия A: точное совпадение основного названия
-                if name_main:
-                    try:
-                        product = Product.objects.get(name__iexact=name_main)
-                    except Product.DoesNotExist:
-                        pass
-                    except Product.MultipleObjectsReturned:
-                        product = Product.objects.filter(name__iexact=name_main).first()
-                
-                # Стратегия B: поиск по началу названия (первые 25 символов)
-                if not product and len(name_main) >= 10:
-                    prefix = name_main[:25].lower()
-                    candidates = Product.objects.filter(name__istartswith=prefix)
-                    if candidates.count() == 1:
-                        product = candidates.first()
-                    elif candidates.count() > 1:
-                        # Берём наиболее точное совпадение
-                        for c in candidates:
-                            if c.name.lower().startswith(name_main.lower()[:40]):
-                                product = c
-                                break
-                        if not product:
-                            product = candidates.first()
-                
-                # Стратегия C: поиск по полному названию из CSV (без обрезки)
-                if not product:
-                    name_full = name_csv.replace('"', '').replace("'", "").strip()
-                    try:
-                        product = Product.objects.get(name__iexact=name_full)
-                    except (Product.DoesNotExist, Product.MultipleObjectsReturned):
-                        pass
-                
-                # Стратегия D: поиск по частичному совпадению (минимум 20 символов)
-                if not product and len(name_main) >= 20:
-                    keyword = name_main[:30].lower()
-                    candidates = Product.objects.filter(name__icontains=keyword)
-                    if candidates.count() == 1:
-                        product = candidates.first()
-                
-                if product:
-                    # ВАЖНО: используем update() вместо save(), чтобы не триггерить пересохранение изображений
-                    if str(product.ozon_sku) != ozon_sku_clean:
-                        Product.objects.filter(id=product.id).update(ozon_sku=ozon_sku_clean)
-                        updated += 1
-                else:
-                    not_found += 1
-                    if not_found <= 5:
-                        errors.append(f"Не найден: '{name_csv[:60]}' (артикул: {article})")
-                        
-            except Exception as e:
-                errors.append(f"Строка {i}: {str(e)[:150]}")
+        total_in_db = Product.objects.count()
         
         return JsonResponse({
-            'success': True,
-            'file': csv_path,
-            'total_rows': len(rows),
-            'updated': updated,
-            'not_found': not_found,
-            'skipped': skipped,
-            'sample_rows': rows[:3],
-            'errors': errors[:15]
+            'diagnostic': True,
+            'total_products_in_db': total_in_db,
+            'first_10_products_in_db': db_names,
+            'csv_sample': rows[:3],
+            'message': 'Сравните названия из БД и CSV. Пришлите мне скриншот или текст этого JSON.'
         }, json_dumps_params={'ensure_ascii': False})
         
     except Exception as e:
