@@ -1,4 +1,6 @@
+import csv
 import logging
+import os
 import time
 from decimal import Decimal
 
@@ -460,3 +462,74 @@ def ozon_delivery_checkout(request):
         error_details = traceback.format_exc()
         logger.error(f"💥 Критическая ошибка в ozon_delivery_checkout:\n{error_details}")
         return HttpResponse(f"<pre style='color:red;font-size:10px;'>ОШИБКА 500:\n{error_details}</pre>")
+
+
+
+def temp_sync_skus(request):
+    """Временный endpoint для синхронизации SKU. УДАЛИТЬ ПОСЛЕ ИСПОЛЬЗОВАНИЯ!"""
+    if not request.user.is_superuser:
+        return JsonResponse({'error': 'Только для администраторов'}, status=403)
+    
+    csv_path = '/app/ozon_products.csv'  # Путь в контейнере Amvera
+    
+    if not os.path.exists(csv_path):
+        return JsonResponse({'error': f'Файл не найден: {csv_path}'}, status=404)
+    
+    # Читаем CSV
+    with open(csv_path, 'r', encoding='utf-8') as f:
+        reader = csv.DictReader(f)
+        rows = list(reader)
+    
+    updated = 0
+    not_found = 0
+    
+    for row in rows:
+        ozon_sku = row.get('SKU')
+        name = row.get('Название товара')
+        article = row.get('Артикул')
+        
+        if not ozon_sku or not name:
+            continue
+        
+        # Очищаем SKU
+        ozon_sku_clean = ''.join(c for c in str(ozon_sku) if c.isdigit())
+        if not ozon_sku_clean:
+            continue
+        
+        # Ищем товар
+        from products.models import Product
+        from django.db.models import Q
+        
+        product = None
+        
+        # По артикулу
+        if article:
+            try:
+                product = Product.objects.get(article=article)
+            except Product.DoesNotExist:
+                pass
+        
+        # По названию
+        if not product and name:
+            try:
+                product = Product.objects.get(name__iexact=name.strip())
+            except Product.DoesNotExist:
+                # Пробуем частичное совпадение
+                products = Product.objects.filter(name__icontains=name.strip()[:30])
+                if products.count() == 1:
+                    product = products.first()
+        
+        if product:
+            if product.ozon_sku != ozon_sku_clean:
+                product.ozon_sku = ozon_sku_clean
+                product.save()
+                updated += 1
+        else:
+            not_found += 1
+    
+    return JsonResponse({
+        'success': True,
+        'updated': updated,
+        'not_found': not_found,
+        'total_rows': len(rows)
+    })
