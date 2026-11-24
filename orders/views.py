@@ -523,7 +523,7 @@ def temp_sync_skus(request):
             
             # 3. Обновляем
             if product:
-                if str(product.ozon_sku) != ozon_sku:
+                if not product.ozon_sku:
                     Product.objects.filter(id=product.id).update(ozon_sku=ozon_sku)
                     updated += 1
                     if len(matched_examples) < 3:
@@ -545,4 +545,26 @@ def temp_sync_skus(request):
         
     except Exception as e:
         import traceback
-        return JsonResponse({'error': str(e), 'traceback': traceback.format_exc()}, status=500)
+        # === ПРОВЕРКА ПОКРЫТИЯ БД ===
+        total_db = Product.objects.count()
+        with_sku = Product.objects.filter(ozon_sku__isnull=False).exclude(ozon_sku='').count()
+        without_sku = total_db - with_sku
+        
+        # Товары БД без SKU (нужно добавить вручную или они не продаются на Ozon)
+        missing_list = []
+        for p in Product.objects.filter(ozon_sku__isnull=True):
+            missing_list.append(p.name)
+        
+        return JsonResponse({
+            'success': True,
+            'updated': updated,
+            'not_found': not_found,
+            'coverage': {
+                'total_db_products': total_db,
+                'with_sku': with_sku,
+                'without_sku': without_sku,
+                'coverage_percent': round(with_sku / total_db * 100, 1) if total_db else 0
+            },
+            'products_without_sku': missing_list[:20],  # первые 20
+            'matched_examples': matched_examples[:3]
+        }, json_dumps_params={'ensure_ascii': False})
