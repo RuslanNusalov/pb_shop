@@ -213,14 +213,11 @@ def ozon_pvz_list(request):
     if 'error' in response_data:
         return HttpResponse(f"<p class='text-red-500 text-sm text-center py-4'>Ошибка загрузки ПВЗ: {response_data['error']}</p>")
 
-    # ApiShip возвращает список в ключе 'result' или сразу массив
-    points = response_data.get('result', response_data if isinstance(response_data, list) else [])
+    # ApiShip возвращает список в ключе 'rows'
+    points = response_data.get('rows', [])
     
     if not points:
         return HttpResponse("<p class='text-gray-500 text-sm text-center py-4'>ПВЗ не найдены. Попробуйте изменить запрос.</p>")
-
-    # Ограничиваем вывод для скорости (ApiShip и так может вернуть много, берём первые 100)
-    points = points[:100]
 
     context = {'pvz_list': points}
     return render(request, 'orders/partials/ozon_pvz_list.html', context)
@@ -230,18 +227,16 @@ def ozon_pvz_list(request):
 def ozon_delivery_checkout(request):
     """Рассчитывает стоимость доставки через ApiShip"""
     map_point_id = request.GET.get('map_point_id', '')
-    phone_raw = request.GET.get('phone', '')
-    city = request.GET.get('ozon_city', 'Москва') # Город получателя
+    city = request.GET.get('ozon_city', 'Москва')
     
     if not map_point_id:
         return HttpResponse("<p class='text-red-500 text-xs'>Выберите пункт выдачи.</p>")
 
-    # Для теста используем дефолтные габариты коробки (можно будет брать из корзины)
+    # Тестовые габариты (можно будет брать из корзины)
     test_items = [
-        {"length": 25, "width": 20, "height": 10, "weight": 0.5, "quantity": 1}
+        {"length": 25, "width": 20, "height": 10, "weight": 0.5, "quantity": 1} # вес в кг, клиент переведет в граммы
     ]
     
-    # Город отправителя (замените на ваш реальный город склада)
     sender_city = getattr(settings, 'APISHIP_SENDER_CITY', 'Санкт-Петербург')
 
     client = ApiShipClient()
@@ -257,13 +252,14 @@ def ozon_delivery_checkout(request):
         logger.error(f"Ошибка расчёта ApiShip: {response_data['error']}")
         return HttpResponse(f"<p class='text-red-500 text-xs font-medium'>⚠️ Ошибка расчёта: {response_data['error']}</p>")
 
-    # Парсим ответ ApiShip (структура зависит от их API, обычно это result.price или подобное)
-    # Если структура другая, мы увидим её в логах и поправим
+    # Парсим ответ ApiShip
     result = response_data.get('result', {})
     
-    # В ApiShip стоимость обычно лежит в result.price или result.total
-    cost = result.get('price') or result.get('total') or 0
-    delivery_time = result.get('delivery_time') or result.get('min_days', 'Уточняется')
+    # Стоимость обычно лежит в result.price
+    cost = result.get('price', 0)
+    
+    # Сроки доставки (если есть в ответе, иначе заглушка)
+    delivery_time = result.get('deliveryTimeMin') or result.get('minDays', '2-3')
 
     return render(request, 'orders/partials/ozon_delivery_cost.html', {
         'cost': cost,

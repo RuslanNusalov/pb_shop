@@ -20,8 +20,8 @@
                 <div class="text-sm flex-1">
                     <div class="font-medium text-black">{{ pvz.name|default:"Пункт выдачи" }}</div>
                     <div class="text-gray-600 text-xs mt-1">📍 {{ pvz.address }}</div>
-                    {% if pvz.working_hours %}
-                    <div class="text-gray-500 text-xs mt-1">🕐 {{ pvz.working_hours }}</div>
+                    {% if pvz.timetable %}
+                    <div class="text-gray-500 text-xs mt-1">🕐 {{ pvz.timetable }}</div>
                     {% endif %}
                 </div>
             </label>
