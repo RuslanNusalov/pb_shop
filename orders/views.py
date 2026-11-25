@@ -32,6 +32,7 @@ from cart.views import CartMixin
 from main.mixins import WishlistContextMixin
 from main.models import ProductSize
 
+from .apiship_client import ApiShipClient
 from .cities import find_city_coords_fallback
 from .forms import OrderForm
 from .models import Order, OrderItem, OzonPVZ
@@ -39,8 +40,8 @@ from .ozon_client import OzonDeliveryClient
 
 logger = logging.getLogger(__name__)
 
-OZON_TEST_WAREHOUSE_ID = getattr(settings, 'OZON_TEST_WAREHOUSE_ID', '')
-OZON_TEST_SKU = getattr(settings, 'OZON_TEST_SKU', '')
+#OZON_TEST_WAREHOUSE_ID = getattr(settings, 'OZON_TEST_WAREHOUSE_ID', '')
+#OZON_TEST_SKU = getattr(settings, 'OZON_TEST_SKU', '')
 
 
 @method_decorator(login_required(login_url=reverse_lazy('users:login')), name='dispatch') # ✅ Используем reverse_lazy
@@ -198,269 +199,74 @@ def cancel_order(request, order_id):
     
     return redirect('orders:order_detail', order_id=order.id)
 
+
 @require_GET
 def ozon_pvz_list(request):
-    city = (request.GET.get('ozon_city') or request.GET.get('city') or '').strip()
+    """Возвращает список ПВЗ Ozon через ApiShip"""
+    city = request.GET.get('ozon_city', '').strip()
+    if not city:
+        return HttpResponse("<p class='text-gray-500 text-sm text-center py-4'>Введите город для поиска ПВЗ</p>")
+
+    client = ApiShipClient()
+    response_data = client.get_pvz_list(city=city, service="ozonlog")
+
+    if 'error' in response_data:
+        return HttpResponse(f"<p class='text-red-500 text-sm text-center py-4'>Ошибка загрузки ПВЗ: {response_data['error']}</p>")
+
+    # ApiShip возвращает список в ключе 'result' или сразу массив
+    points = response_data.get('result', response_data if isinstance(response_data, list) else [])
     
-    if not city or len(city) < 3:
-        return HttpResponse("<p class='text-gray-500 text-sm text-center py-4'>Введите название города (мин. 3 символа)</p>")
-    
-    logger.info(f"🔍 Поиск ПВЗ для города: {city}")
-    
-    # 1. Проверяем кэш
-    cached_pvz = OzonPVZ.objects.filter(city__icontains=city, enabled=True).order_by('name')[:150]
-    
-    if cached_pvz.exists():
-        logger.info(f"✅ Найдено {cached_pvz.count()} ПВЗ в кэше для {city}")
-        return render(request, 'orders/partials/ozon_pvz_list.html', {
-            'pvz_list': cached_pvz,
-            'from_cache': True
-        })
-    
-    logger.info(f"⏳ Кэш пуст, запрашиваем Ozon API для {city}")
-    
-    # 2. Геокодинг
-    lat, lon = None, None
-    
-    # Пробуем DaData
-    dadata_key = getattr(settings, 'DADATA_API_KEY', '')
-    if dadata_key:
-        try:
-            dadata_response = requests.post(
-                "https://suggestions.dadata.ru/suggestions/api/4_1/rs/geolocate/address",
-                headers={
-                    "Authorization": f"Token {dadata_key}",
-                    "Content-Type": "application/json",
-                },
-                json={"query": city},
-                timeout=10
-            )
-            if dadata_response.status_code == 200:
-                dadata_data = dadata_response.json()
-                if dadata_data.get('suggestions'):
-                    lat = float(dadata_data['suggestions'][0]['data']['geo_lat'])
-                    lon = float(dadata_data['suggestions'][0]['data']['geo_lon'])
-                    logger.info(f"📍 DaData нашёл {city}: lat={lat}, lon={lon}")
-        except Exception as e:
-            logger.warning(f"⚠️ DaData ошибка: {e}")
-    
-    # Fallback на встроенный список
-    if not lat or not lon:
-        logger.info(f"⚠️ DaData не нашла {city}, используем fallback")
-        coords = find_city_coords_fallback(city)
-        if coords:
-            lat, lon = coords
-            logger.info(f"📍 Fallback нашёл {city}: lat={lat}, lon={lon}")
-    
-    # Если ничего не нашли
-    if not lat or not lon:
-        logger.warning(f"❌ Город не найден: {city}")
-        return HttpResponse(f"<p class='text-red-500 text-sm text-center py-4'>Город '{city}' не найден. Попробуйте написать полностью.</p>")
-    
-    # 3. Viewport
-    delta = 0.45
-    viewport = {
-        "left_bottom": {"lat": lat - delta, "long": lon - delta},
-        "right_top": {"lat": lat + delta, "long": lon + delta}
-    }
-    
-    # 4. Получаем кластеры
-    client = OzonDeliveryClient()
-    clusters_response = client.get_pvz_clusters(viewport, zoom=10)
-    
-    if 'error' in clusters_response:
-        logger.error(f"❌ Ошибка кластеров: {clusters_response['error']}")
-        return HttpResponse(f"<p class='text-red-500 text-sm text-center py-4'>Ошибка: {clusters_response['error']}</p>")
-    
-    clusters = clusters_response.get('clusters', [])
-    logger.info(f"📦 Получено кластеров: {len(clusters)}")
-    
-    # 5. Собираем ID
-    all_point_ids = []
-    for cluster in clusters:
-        all_point_ids.extend([str(pid) for pid in cluster.get('map_point_ids', [])])
-    
-    logger.info(f"🔢 Всего точек: {len(all_point_ids)}")
-    
-    if not all_point_ids:
-        logger.warning(f"⚠️ Нет точек для {city}")
-        return HttpResponse(f"<p class='text-gray-500 text-sm text-center py-4'>ПВЗ не найдены в радиусе 50 км от '{city}'</p>")
-    
-    all_point_ids = all_point_ids[:1000]
-    
-    # 6. Получаем детали пачками (максимум 10 пачек = 1000 точек)
-    import time as time_module
-    all_details = []
-    max_batches = 10  # 10 пачек × 100 точек = 1000 точек максимум
-    batch_count = 0
-    
-    for i in range(0, len(all_point_ids), 100):
-        if batch_count >= max_batches:
-            break
-        batch = all_point_ids[i:i+100]
-        info_response = client.get_pvz_info(batch)
-        if 'error' not in info_response:
-            points = info_response.get('points', [])
-            all_details.extend(points)
-            logger.info(f"📋 Пачка {batch_count + 1}: получено {len(points)} точек")
-        else:
-            logger.warning(f"⚠️ Ошибка пачки {batch_count + 1}: {info_response.get('error')}")
-        batch_count += 1
-        if i + 100 < len(all_point_ids):
-            time_module.sleep(0.15)  # Чуть меньше пауза для скорости
-    
-    logger.info(f"✅ Всего получено деталей: {len(all_details)}")
-    
-    # 7. Сохраняем в кэш (map_point_id лежит внутри delivery_method!)
-    saved_count = 0
-    for point_data in all_details:
-        try:
-            dm = point_data.get('delivery_method', {})
-            mp_id = dm.get('map_point_id')  # ← ИСПРАВЛЕНО: берём из delivery_method
-            if not mp_id:
-                continue
-            addr = dm.get('address_details', {})
-            coord = dm.get('coordinates', {})
-            
-            OzonPVZ.objects.update_or_create(
-                map_point_id=mp_id,
-                defaults={
-                    'name': dm.get('name', ''),
-                    'address': dm.get('address', ''),
-                    'city': addr.get('city', city),
-                    'region': addr.get('region', ''),
-                    'lat': coord.get('lat'),
-                    'lng': coord.get('long') or coord.get('lng'),
-                    'enabled': point_data.get('enabled', True),
-                    'working_hours': dm.get('working_hours'),
-                }
-            )
-            saved_count += 1
-        except Exception as e:
-            logger.error(f"❌ Ошибка сохранения точки: {e}")
-            continue
-    
-    logger.info(f"💾 Сохранено в кэш: {saved_count} точек")
-    
-    # 8. Возвращаем данные (ищем по региону или координатам)
-    from django.db.models import Q
-    
-    # Пробуем найти по региону (например, "Московская" для Москвы)
-    fresh_pvz = OzonPVZ.objects.filter(
-        Q(region__icontains=city) | Q(city__icontains=city),
-        enabled=True
-    ).order_by('name')[:150]
-    
-    # Если ничего не нашли по региону/городу, берём ближайшие по координатам
-    if not fresh_pvz.exists():
-        logger.info(f"⚠️ Не найдено по городу/региону, ищем по координатам")
-        # Упрощённый поиск: берём все точки в радиусе ~50 км
-        fresh_pvz = OzonPVZ.objects.filter(
-            lat__gte=lat - 0.45, lat__lte=lat + 0.45,
-            lng__gte=lon - 0.45, lng__lte=lon + 0.45,
-            enabled=True
-        ).order_by('name')[:50]
-    
-    logger.info(f"🔍 Найдено в кэше после сохранения: {fresh_pvz.count()}")
-    
-    return render(request, 'orders/partials/ozon_pvz_list.html', {
-        'pvz_list': fresh_pvz,
-        'from_cache': False
-    })
+    if not points:
+        return HttpResponse("<p class='text-gray-500 text-sm text-center py-4'>ПВЗ не найдены. Попробуйте изменить запрос.</p>")
+
+    # Ограничиваем вывод для скорости (ApiShip и так может вернуть много, берём первые 100)
+    points = points[:100]
+
+    context = {'pvz_list': points}
+    return render(request, 'orders/partials/ozon_pvz_list.html', context)
 
 
 @require_GET
 def ozon_delivery_checkout(request):
-    try:
-        map_point_id = request.GET.get('map_point_id', '')
-        phone_raw = request.GET.get('phone', '')
-        
-        logger.info(f"🔍 Получены параметры: map_point_id={map_point_id}, phone={phone_raw}")
-        
-        # 1. Очистка телефона
-        phone = ''.join(c for c in phone_raw if c.isdigit())
-        if phone.startswith('8'):
-            phone = '7' + phone[1:]
-        
-        if not phone or len(phone) < 11:
-            return HttpResponse("<p class='text-red-500 text-xs font-medium'>⚠️ Введите корректный номер телефона (минимум 11 цифр).</p>")
-        if not map_point_id:
-            return HttpResponse("<p class='text-red-500 text-xs'>Выберите пункт выдачи.</p>")
+    """Рассчитывает стоимость доставки через ApiShip"""
+    map_point_id = request.GET.get('map_point_id', '')
+    phone_raw = request.GET.get('phone', '')
+    city = request.GET.get('ozon_city', 'Москва') # Город получателя
+    
+    if not map_point_id:
+        return HttpResponse("<p class='text-red-500 text-xs'>Выберите пункт выдачи.</p>")
 
-        # 2. Получаем настройки
-        test_sku_str = getattr(settings, 'OZON_TEST_SKU', None)
-        warehouse_id = getattr(settings, 'OZON_TEST_WAREHOUSE_ID', None)
-        
-        logger.info(f"⚙️ Настройки: OZON_TEST_SKU={test_sku_str}, WAREHOUSE_ID={warehouse_id}")
-        
-        if not test_sku_str or not warehouse_id:
-            logger.error("❌ Отсутствуют OZON_TEST_SKU или OZON_TEST_WAREHOUSE_ID")
-            return HttpResponse("<p class='text-red-500 text-xs'>Ошибка конфигурации: не указан тестовый SKU или склад.</p>")
+    # Для теста используем дефолтные габариты коробки (можно будет брать из корзины)
+    test_items = [
+        {"length": 25, "width": 20, "height": 10, "weight": 0.5, "quantity": 1}
+    ]
+    
+    # Город отправителя (замените на ваш реальный город склада)
+    sender_city = getattr(settings, 'APISHIP_SENDER_CITY', 'Санкт-Петербург')
 
-        try:
-            test_sku = int(test_sku_str)
-            warehouse_id = int(warehouse_id)
-            map_point_id = int(map_point_id)
-        except ValueError as e:
-            logger.error(f"❌ Ошибка преобразования типов: {e}")
-            return HttpResponse(f"<p class='text-red-500 text-xs'>Ошибка: SKU и warehouse_id должны быть числами. {e}</p>")
+    client = ApiShipClient()
+    response_data = client.calculate_delivery(
+        service="ozonlog",
+        sender_city=sender_city,
+        receiver_city=city,
+        receiver_point_id=map_point_id,
+        items=test_items
+    )
 
-        # 3. Вызываем Ozon API
-        from orders.ozon_client import OzonDeliveryClient
-        client = OzonDeliveryClient()
-        
-        logger.info(f"📦 Отправляем запрос: sku={test_sku}, map_point_id={map_point_id}, phone={phone}, warehouse_id={warehouse_id}")
-        
-        response_data = client.calculate_checkout(
-            items=[{"sku": test_sku, "quantity": 1}],
-            map_point_id=map_point_id,
-            phone=phone,
-            warehouse_id=warehouse_id,
-            delivery_schema="MIX",
-            delivery_type="pick_up"
-        )
-        
-        logger.info(f"📊 Ответ Ozon: {response_data}")
-        
-        # 4. Обработка ответа
-        if 'error' in response_data:
-            logger.error(f"❌ Ozon вернул ошибку: {response_data['error']}")
-            return HttpResponse(f"<p class='text-red-500 text-xs font-medium'>⚠️ Ошибка расчёта: {response_data['error']}</p>")
-        
-        # 5. Парсинг структуры splits (реальный формат ответа Ozon)
-        splits = response_data.get('splits', [])
-        if not splits:
-            logger.warning(f"⚠️ Нет splits в ответе. Ответ: {response_data}")
-            return HttpResponse("<p class='text-yellow-600 text-xs'>ℹ️ Доставка в этот пункт временно недоступна.</p>")
-        
-        # Берём первый split
-        split = splits[0]
-        
-        # Стоимость из commissions.total.amount
-        commissions = split.get('commissions', {})
-        total = commissions.get('total', {})
-        cost = total.get('amount', 0)
-        
-        # Сроки из timeslots
-        timeslots = split.get('delivery_method', {}).get('timeslots', [])
-        if timeslots:
-            first_slot = timeslots[0]
-            date_from = first_slot.get('logistic_date_range', {}).get('from', '')
-            date_to = first_slot.get('logistic_date_range', {}).get('to', '')
-            delivery_time = f"{date_from[:10]} - {date_to[:10]}" if date_from and date_to else "Уточняется"
-        else:
-            delivery_time = "Уточняется"
-        
-        logger.info(f"✅ Успех: cost={cost}, delivery_time={delivery_time}")
-        
-        return render(request, 'orders/partials/ozon_delivery_cost.html', {
-            'cost': cost,
-            'delivery_time': delivery_time,
-            'map_point_id': map_point_id
-        })
-        
-    except Exception as e:
-        import traceback
-        error_details = traceback.format_exc()
-        logger.error(f"💥 Критическая ошибка в ozon_delivery_checkout:\n{error_details}")
-        return HttpResponse(f"<pre style='color:red;font-size:10px;'>ОШИБКА 500:\n{error_details}</pre>")
+    if 'error' in response_data:
+        logger.error(f"Ошибка расчёта ApiShip: {response_data['error']}")
+        return HttpResponse(f"<p class='text-red-500 text-xs font-medium'>⚠️ Ошибка расчёта: {response_data['error']}</p>")
+
+    # Парсим ответ ApiShip (структура зависит от их API, обычно это result.price или подобное)
+    # Если структура другая, мы увидим её в логах и поправим
+    result = response_data.get('result', {})
+    
+    # В ApiShip стоимость обычно лежит в result.price или result.total
+    cost = result.get('price') or result.get('total') or 0
+    delivery_time = result.get('delivery_time') or result.get('min_days', 'Уточняется')
+
+    return render(request, 'orders/partials/ozon_delivery_cost.html', {
+        'cost': cost,
+        'delivery_time': f"{delivery_time} дн.",
+        'map_point_id': map_point_id
+    })

@@ -1,43 +1,40 @@
-{% load ozon_tags %}
-
 {% if not pvz_list %}
-    <p class="text-gray-500 text-sm text-center py-4">ПВЗ не найдены. Попробуйте изменить адрес.</p>
+    <p class="text-gray-500 text-sm text-center py-4">ПВЗ не найдены. Попробуйте изменить запрос.</p>
 {% else %}
     <div class="space-y-2 max-h-96 overflow-y-auto pr-2 custom-scrollbar">
-        <p class="text-xs text-gray-600 mb-2">Найдено {{ pvz_list|length }} пунктов выдачи. Выберите удобный:</p>
+        <p class="text-xs text-gray-600 mb-2">Найдено {{ pvz_list|length }} пунктов. Выберите удобный:</p>
         {% for pvz in pvz_list %}
-            <label class="flex items-start p-3 border-2 border-gray-200 rounded-sm cursor-pointer hover:border-black transition has-[:checked]:border-black has-[:checked]:bg-blue-50">
+            <label class="pvz-item flex items-start p-3 border-2 border-gray-200 rounded-sm cursor-pointer hover:border-black transition">
                 <input type="radio" 
                        name="ozon_point_radio" 
-                       value="{{ pvz.map_point_id }}" 
+                       value="{{ pvz.id }}" 
                        class="mt-1 mr-3 h-4 w-4 text-black border-black"
                        hx-get="{% url 'orders:ozon_delivery_checkout' %}"
                        hx-target="#ozon-delivery-cost-block"
                        hx-swap="innerHTML"
                        hx-vals='js:{
-                           "map_point_id": "{{ pvz.map_point_id }}",
-                           "phone": document.querySelector("input[name=phone]")?.value.replace(/\D/g, "") || ""
+                           "map_point_id": "{{ pvz.id }}",
+                           "phone": document.querySelector("input[name=phone]")?.value.replace(/\D/g, "") || "",
+                           "ozon_city": document.querySelector("input[name=ozon_city]")?.value || "Москва"
                        }'>
                 <div class="text-sm flex-1">
-                    <div class="font-medium text-black">{{ pvz.name|default:"Пункт выдачи Ozon" }}</div>
+                    <div class="font-medium text-black">{{ pvz.name|default:"Пункт выдачи" }}</div>
                     <div class="text-gray-600 text-xs mt-1">📍 {{ pvz.address }}</div>
-                    <div class="text-gray-500 text-xs mt-1">🕐 {{ pvz.working_hours|format_working_hours }}</div>
+                    {% if pvz.working_hours %}
+                    <div class="text-gray-500 text-xs mt-1">🕐 {{ pvz.working_hours }}</div>
+                    {% endif %}
                 </div>
             </label>
         {% endfor %}
     </div>
     
     <script>
-        // Обработчик переключения радио-кнопок
         document.querySelectorAll('input[name="ozon_point_radio"]').forEach(radio => {
             radio.addEventListener('change', function() {
-                // Убираем выделение со всех пунктов
                 document.querySelectorAll('.pvz-item').forEach(item => {
                     item.classList.remove('border-black', 'bg-blue-50');
                     item.classList.add('border-gray-200');
                 });
-                
-                // Добавляем выделение на выбранный
                 const selectedLabel = this.closest('.pvz-item');
                 if (selectedLabel) {
                     selectedLabel.classList.remove('border-gray-200');
