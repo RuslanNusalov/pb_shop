@@ -1,4 +1,5 @@
 import csv
+import json
 import logging
 import os
 import re
@@ -248,98 +249,31 @@ def ozon_delivery_checkout(request):
         items=test_items
     )
 
+    
     if 'error' in response_data:
         logger.error(f"Ошибка расчёта ApiShip: {response_data['error']}")
-        return HttpResponse(f"<p class='text-red-500 text-xs font-medium'>⚠️ Ошибка расчёта: {response_data['error']}</p>")
+        return HttpResponse(f"<p class='text-red-500 text-xs'>⚠️ {response_data['error']}</p>")
 
-    # ApiShip возвращает тарифы в rows
     rows = response_data.get('rows', [])
+    cost = 0
+    delivery_time = '2-3'
     if rows:
         row = rows[0]
         cost = row.get('price') or row.get('cost') or row.get('total') or 0
         dmin = row.get('deliveryTimeMin') or row.get('daysMin') or row.get('minDays')
         dmax = row.get('deliveryTimeMax') or row.get('daysMax') or row.get('maxDays')
         delivery_time = f"{dmin}-{dmax}" if dmin and dmax else (dmin or '2-3')
-    else:
-        cost = response_data.get('price') or 0
-        delivery_time = '2-3'
+
+    # DEBUG: если не удалось получить цену — показываем сырой ответ
+    if not cost:
+        return HttpResponse(
+            "<pre style='font-size:10px;white-space:pre-wrap'>DEBUG calculator response:\n"
+            + json.dumps(response_data, ensure_ascii=False, indent=2)
+            + "</pre>"
+        )
 
     return render(request, 'orders/partials/ozon_delivery_cost.html', {
         'cost': cost,
         'delivery_time': f"{delivery_time} дн.",
         'map_point_id': map_point_id
     })
-
-
-
-@require_GET
-def temp_apiship_token_test(request):
-    """Тестируем все способы передачи токена подключения ApiShip. УДАЛИТЬ ПОСЛЕ!"""
-    if not request.user.is_superuser:
-        return JsonResponse({'error': 'Только для администраторов'}, status=403)
-
-    
-    base_url = "https://api.apiship.ru/v1"
-    account_id = getattr(settings, 'APISHIP_ACCOUNT_ID', '')
-    connection_token = getattr(settings, 'APISHIP_API_KEY', '')
-    url = f"{base_url}/lists/points?limit=1&offset=0&filter=city=Москва;providerKey=ozonlog"
-    results = {}
-    
-    # Тест 1: Bearer токен
-    try:
-        r = requests.get(url, headers={"Authorization": f"Bearer {connection_token}"}, timeout=10)
-        results['bearer'] = {'status': r.status_code, 'response': r.text[:200]}
-    except Exception as e:
-        results['bearer'] = {'error': str(e)}
-    
-    # Тест 2: Заголовок X-Connection-Token
-    try:
-        r = requests.get(url, headers={"X-Connection-Token": connection_token}, timeout=10)
-        results['x_connection_token'] = {'status': r.status_code, 'response': r.text[:200]}
-    except Exception as e:
-        results['x_connection_token'] = {'error': str(e)}
-    
-    # Тест 3: Query-параметр token
-    try:
-        r = requests.get(f"{url}&token={connection_token}", timeout=10)
-        results['query_token'] = {'status': r.status_code, 'response': r.text[:200]}
-    except Exception as e:
-        results['query_token'] = {'error': str(e)}
-    
-    # Тест 4: Query-параметр connectionToken
-    try:
-        r = requests.get(f"{url}&connectionToken={connection_token}", timeout=10)
-        results['query_connection_token'] = {'status': r.status_code, 'response': r.text[:200]}
-    except Exception as e:
-        results['query_connection_token'] = {'error': str(e)}
-    
-    # Тест 5: Заголовок Connection-Token
-    try:
-        r = requests.get(url, headers={"Connection-Token": connection_token}, timeout=10)
-        results['header_connection_token'] = {'status': r.status_code, 'response': r.text[:200]}
-    except Exception as e:
-        results['header_connection_token'] = {'error': str(e)}
-    
-    # Тест 6: POST /lists/points с токеном в теле
-    try:
-        r = requests.post(
-            f"{base_url}/lists/points",
-            json={"token": connection_token, "limit": 1, "filter": "city=Москва;providerKey=ozonlog"},
-            timeout=10
-        )
-        results['post_body_token'] = {'status': r.status_code, 'response': r.text[:200]}
-    except Exception as e:
-        results['post_body_token'] = {'error': str(e)}
-    
-    # Тест 7: GET /connections/{id} — проверим, работает ли токен для получения инфо о подключении
-    try:
-        r = requests.get(
-            f"{base_url}/connections/{account_id}",
-            headers={"Authorization": f"Bearer {connection_token}"},
-            timeout=10
-        )
-        results['get_connection_info'] = {'status': r.status_code, 'response': r.text[:200]}
-    except Exception as e:
-        results['get_connection_info'] = {'error': str(e)}
-    
-    return JsonResponse(results, json_dumps_params={'ensure_ascii': False})
