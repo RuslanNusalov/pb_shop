@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime, timedelta
 
 import requests
 from django.conf import settings
@@ -7,30 +8,60 @@ logger = logging.getLogger(__name__)
 
 class ApiShipClient:
     def __init__(self):
-    # ВРЕМЕННО: хардкод для теста
-        self.api_key = 'application_connection_f61fdc38-06ce-4de7-9ffa-cbe715ab1088'
-        self.account_id = '41212'
+        self.login = getattr(settings, 'APISHIP_LOGIN', '')
+        self.password = getattr(settings, 'APISHIP_PASSWORD', '')
         self.base_url = "https://api.apiship.ru/v1"
+        self.token = None
+        self.token_expires = None
         
         # Диагностика
-        if self.api_key:
-            logger.info(f"✅ ApiShip ключ найден: {self.api_key[:20]}...")
+        if self.login and self.password:
+            logger.info(f"✅ ApiShip логин найден: {self.login}")
         else:
-            logger.error("❌ APISHIP_API_KEY не найден!")
+            logger.error("❌ APISHIP_LOGIN или APISHIP_PASSWORD не найдены!")
+
+    def _get_token(self):
+        """Получает токен через авторизацию"""
+        if self.token and self.token_expires and datetime.now() < self.token_expires:
+            return self.token
         
-        if self.account_id:
-            logger.info(f"✅ ApiShip Account ID: {self.account_id}")
-        else:
-            logger.warning("⚠️ APISHIP_ACCOUNT_ID не найден")
+        try:
+            response = requests.post(
+                f"{self.base_url}/users/login",
+                json={
+                    "login": self.login,
+                    "password": self.password
+                },
+                headers={"Content-Type": "application/json"},
+                timeout=10
+            )
+            response.raise_for_status()
+            data = response.json()
+            
+            self.token = data.get('token')
+            # Токен живёт 24 часа, обновляем за час до истечения
+            self.token_expires = datetime.now() + timedelta(hours=23)
+            
+            logger.info(f"✅ Токен ApiShip получен")
+            return self.token
+            
+        except Exception as e:
+            logger.error(f"❌ Ошибка получения токена: {e}")
+            return None
 
     def _get_headers(self):
+        token = self._get_token()
+        if not token:
+            raise Exception("Не удалось получить токен ApiShip")
+        
         return {
-            "Authorization": self.api_key,  # ← Убрали "Bearer " (попробуйте оба варианта)
+            "Authorization": f"Bearer {token}",
             "Content-Type": "application/json",
             "Accept": "application/json"
         }
 
     def get_pvz_list(self, city, service="ozonlog"):
+        """Получает список ПВЗ"""
         url = f"{self.base_url}/lists/points"
         filter_str = f"city={city};providerKey={service};availableOperation=[2,3]"
         
@@ -38,7 +69,6 @@ class ApiShipClient:
             "limit": 100,
             "offset": 0,
             "filter": filter_str
-            # accountId убран для GET-запроса
         }
         
         try:
@@ -54,7 +84,8 @@ class ApiShipClient:
             return {"error": str(e)}
 
     def calculate_delivery(self, service, sender_city, receiver_city, receiver_point_id, items):
-        url = f"{self.base_url}/price"
+        """Рассчитывает стоимость доставки через /calculator"""
+        url = f"{self.base_url}/calculator"
         
         formatted_items = []
         for item in items:
@@ -76,7 +107,6 @@ class ApiShipClient:
             "senderCity": sender_city,
             "receiverCity": receiver_city,
             "receiverPointId": str(receiver_point_id),
-            "accountId": int(self.account_id) if self.account_id else None,
             "items": formatted_items
         }
         
