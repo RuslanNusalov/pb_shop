@@ -51,33 +51,39 @@ class ApiShipClient:
 
     def calculate_delivery(self, service, sender_city, receiver_city, receiver_point_id, items):
         url = f"{self.base_url}/calculator"
-        
-        formatted_items = []
+
+        # Собираем places и общий вес (в граммах)
+        places = []
+        total_weight = 0
         for item in items:
             try:
-                weight_kg = float(item.get("weight", 0.5))
-                formatted_items.append({
-                    "length": int(item.get("length", 20)),
-                    "width": int(item.get("width", 15)),
-                    "height": int(item.get("height", 10)),
-                    "weight": int(weight_kg * 1000),
-                    "quantity": int(item.get("quantity", 1))
-                })
-            except (ValueError, TypeError) as e:
-                logger.error(f"Ошибка парсинга item: {e}")
-                continue
-        
+                weight_g = max(int(float(item.get("weight", 0.5)) * 1000), 1)
+                qty = max(int(item.get("quantity", 1)), 1)
+                length = max(int(item.get("length", 20)), 1)
+                width = max(int(item.get("width", 15)), 1)
+                height = max(int(item.get("height", 10)), 1)
+            except (ValueError, TypeError):
+                weight_g, qty, length, width, height = 500, 1, 20, 15, 10
+            for _ in range(qty):
+                places.append({"length": length, "width": width, "height": height, "weight": weight_g})
+                total_weight += weight_g
+
+        if not places:
+            places = [{"length": 20, "width": 15, "height": 10, "weight": 500}]
+            total_weight = 500
+
         payload = {
             "providerKey": service,
-            "senderCity": sender_city,
-            "receiverCity": receiver_city,
-            "receiverPointId": str(receiver_point_id),
-            "items": formatted_items
+            "from": {"city": sender_city},
+            "to": {"city": receiver_city, "pointId": int(receiver_point_id)},
+            "weight": total_weight,
+            "places": places,
         }
-        
+
         try:
             logger.info(f"📤 ApiShip запрос расчёта: {payload}")
             response = requests.post(url, json=payload, headers=self._get_headers(), timeout=15)
+            logger.info(f"📥 ApiShip ответ расчёта: {response.text[:1000]}")
             response.raise_for_status()
             return response.json()
         except requests.exceptions.HTTPError as e:

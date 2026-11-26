@@ -252,14 +252,17 @@ def ozon_delivery_checkout(request):
         logger.error(f"Ошибка расчёта ApiShip: {response_data['error']}")
         return HttpResponse(f"<p class='text-red-500 text-xs font-medium'>⚠️ Ошибка расчёта: {response_data['error']}</p>")
 
-    # Парсим ответ ApiShip
-    result = response_data.get('result', {})
-    
-    # Стоимость обычно лежит в result.price
-    cost = result.get('price', 0)
-    
-    # Сроки доставки (если есть в ответе, иначе заглушка)
-    delivery_time = result.get('deliveryTimeMin') or result.get('minDays', '2-3')
+    # ApiShip возвращает тарифы в rows
+    rows = response_data.get('rows', [])
+    if rows:
+        row = rows[0]
+        cost = row.get('price') or row.get('cost') or row.get('total') or 0
+        dmin = row.get('deliveryTimeMin') or row.get('daysMin') or row.get('minDays')
+        dmax = row.get('deliveryTimeMax') or row.get('daysMax') or row.get('maxDays')
+        delivery_time = f"{dmin}-{dmax}" if dmin and dmax else (dmin or '2-3')
+    else:
+        cost = response_data.get('price') or 0
+        delivery_time = '2-3'
 
     return render(request, 'orders/partials/ozon_delivery_cost.html', {
         'cost': cost,
