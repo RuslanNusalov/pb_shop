@@ -269,53 +269,74 @@ def ozon_delivery_checkout(request):
 
 
 
-
 @require_GET
-def temp_apiship_auth(request):
-    """Диагностика авторизации ApiShip. УДАЛИТЬ ПОСЛЕ ИСПОЛЬЗОВАНИЯ!"""
+def temp_apiship_token_test(request):
+    """Тестируем все способы передачи токена подключения ApiShip. УДАЛИТЬ ПОСЛЕ!"""
     if not request.user.is_superuser:
         return JsonResponse({'error': 'Только для администраторов'}, status=403)
+
     
     base_url = "https://api.apiship.ru/v1"
-    
-    # ВАШИ ДАННЫЕ ИЗ ЛК
-    account_id = '41212'
-    connection_token = 'application_connection_f61fdc38-06ce-4de7-9ffa-cbe715ab1088'
-    
-    # ⚠️ ВСТАВЬТЕ СЮДА ВАШ EMAIL И ПАРОЛЬ ОТ САЙТА APISHIP.RU (если есть)
-    apiship_email = getattr(settings, 'APISHIP_LOGIN', '')
-    apiship_password = getattr(settings, 'APISHIP_PASSWORD', '')
-
+    account_id = getattr(settings, 'APISHIP_ACCOUNT_ID', '')
+    connection_token = getattr(settings, 'APISHIP_API_KEY', '')
+    url = f"{base_url}/lists/points?limit=1&offset=0&filter=city=Москва;providerKey=ozonlog"
     results = {}
     
-    # Тест 1: Вход по ID и токену подключения
+    # Тест 1: Bearer токен
     try:
-        r = requests.post(f"{base_url}/users/login", json={"login": account_id, "password": connection_token}, timeout=10)
-        results['test_1_id_and_connection'] = {'status': r.status_code, 'response': r.text[:300]}
+        r = requests.get(url, headers={"Authorization": f"Bearer {connection_token}"}, timeout=10)
+        results['bearer'] = {'status': r.status_code, 'response': r.text[:200]}
     except Exception as e:
-        results['test_1'] = {'error': str(e)}
-        
-    # Тест 2: Вход по Email и паролю от ЛК
+        results['bearer'] = {'error': str(e)}
+    
+    # Тест 2: Заголовок X-Connection-Token
     try:
-        r = requests.post(f"{base_url}/users/login", json={"login": apiship_email, "password": apiship_password}, timeout=10)
-        results['test_2_email_and_password'] = {'status': r.status_code, 'response': r.text[:300]}
+        r = requests.get(url, headers={"X-Connection-Token": connection_token}, timeout=10)
+        results['x_connection_token'] = {'status': r.status_code, 'response': r.text[:200]}
     except Exception as e:
-        results['test_2'] = {'error': str(e)}
-        
-    # Тест 3: Прямой запрос к ПВЗ с Bearer токеном подключения
+        results['x_connection_token'] = {'error': str(e)}
+    
+    # Тест 3: Query-параметр token
     try:
-        headers = {"Authorization": f"Bearer {connection_token}"}
-        r = requests.get(f"{base_url}/lists/points?limit=1&offset=0&filter=city=Москва;providerKey=ozonlog", headers=headers, timeout=10)
-        results['test_3_bearer_connection_token'] = {'status': r.status_code, 'response': r.text[:300]}
+        r = requests.get(f"{url}&token={connection_token}", timeout=10)
+        results['query_token'] = {'status': r.status_code, 'response': r.text[:200]}
     except Exception as e:
-        results['test_3'] = {'error': str(e)}
-
-    # Тест 4: Прямой запрос к ПВЗ с заголовком X-Api-Key
+        results['query_token'] = {'error': str(e)}
+    
+    # Тест 4: Query-параметр connectionToken
     try:
-        headers = {"X-Api-Key": connection_token}
-        r = requests.get(f"{base_url}/lists/points?limit=1&offset=0&filter=city=Москва;providerKey=ozonlog", headers=headers, timeout=10)
-        results['test_4_x_api_key'] = {'status': r.status_code, 'response': r.text[:300]}
+        r = requests.get(f"{url}&connectionToken={connection_token}", timeout=10)
+        results['query_connection_token'] = {'status': r.status_code, 'response': r.text[:200]}
     except Exception as e:
-        results['test_4'] = {'error': str(e)}
-        
+        results['query_connection_token'] = {'error': str(e)}
+    
+    # Тест 5: Заголовок Connection-Token
+    try:
+        r = requests.get(url, headers={"Connection-Token": connection_token}, timeout=10)
+        results['header_connection_token'] = {'status': r.status_code, 'response': r.text[:200]}
+    except Exception as e:
+        results['header_connection_token'] = {'error': str(e)}
+    
+    # Тест 6: POST /lists/points с токеном в теле
+    try:
+        r = requests.post(
+            f"{base_url}/lists/points",
+            json={"token": connection_token, "limit": 1, "filter": "city=Москва;providerKey=ozonlog"},
+            timeout=10
+        )
+        results['post_body_token'] = {'status': r.status_code, 'response': r.text[:200]}
+    except Exception as e:
+        results['post_body_token'] = {'error': str(e)}
+    
+    # Тест 7: GET /connections/{id} — проверим, работает ли токен для получения инфо о подключении
+    try:
+        r = requests.get(
+            f"{base_url}/connections/{account_id}",
+            headers={"Authorization": f"Bearer {connection_token}"},
+            timeout=10
+        )
+        results['get_connection_info'] = {'status': r.status_code, 'response': r.text[:200]}
+    except Exception as e:
+        results['get_connection_info'] = {'error': str(e)}
+    
     return JsonResponse(results, json_dumps_params={'ensure_ascii': False})
