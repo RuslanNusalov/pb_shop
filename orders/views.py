@@ -1,5 +1,4 @@
 import csv
-import json
 import logging
 import os
 import re
@@ -254,26 +253,37 @@ def ozon_delivery_checkout(request):
         logger.error(f"Ошибка расчёта ApiShip: {response_data['error']}")
         return HttpResponse(f"<p class='text-red-500 text-xs'>⚠️ {response_data['error']}</p>")
 
-    rows = response_data.get('rows', [])
-    cost = 0
-    delivery_time = '2-3'
-    if rows:
-        row = rows[0]
-        cost = row.get('price') or row.get('cost') or row.get('total') or 0
-        dmin = row.get('deliveryTimeMin') or row.get('daysMin') or row.get('minDays')
-        dmax = row.get('deliveryTimeMax') or row.get('daysMax') or row.get('maxDays')
-        delivery_time = f"{dmin}-{dmax}" if dmin and dmax else (dmin or '2-3')
+        # ApiShip /calculator: тарифы в deliveryToPoint / deliveryToDoor
+    tariffs = []
+    for block in response_data.get('deliveryToPoint', []):
+        if block.get('providerKey') == 'ozonlog':
+            tariffs.extend(block.get('tariffs', []))
 
-    # DEBUG: если не удалось получить цену — показываем сырой ответ
-    if not cost:
+    if not tariffs:
         return HttpResponse(
-            "<pre style='font-size:10px;white-space:pre-wrap'>DEBUG calculator response:\n"
-            + json.dumps(response_data, ensure_ascii=False, indent=2)
-            + "</pre>"
+            "<p class='text-yellow-600 text-xs'>ℹ️ Доставка в этот пункт недоступна. Выберите другой.</p>"
         )
+
+    # Берём самый дешёвый доступный тариф
+    tariff = min(tariffs, key=lambda t: t.get('deliveryCost') or 10**9)
+
+    cost = tariff.get('deliveryCost') or tariff.get('deliveryCostOriginal') or 0
+    days_min = tariff.get('daysMin')
+    days_max = tariff.get('daysMax')
+
+    if days_min and days_max:
+        delivery_time = f"{days_min}–{days_max} дн."
+    elif days_min:
+        delivery_time = f"от {days_min} дн."
+    else:
+        delivery_time = "уточняется"
+
+    logger.info(f"✅ ApiShip расчёт: cost={cost}, time={delivery_time}, tariffId={tariff.get('tariffId')}")
 
     return render(request, 'orders/partials/ozon_delivery_cost.html', {
         'cost': cost,
-        'delivery_time': f"{delivery_time} дн.",
-        'map_point_id': map_point_id
+        'delivery_time': delivery_time,
+        'map_point_id': map_point_id,
+        'tariff_id': tariff.get('tariffId'),
+        'provider_key': 'ozonlog',
     })
