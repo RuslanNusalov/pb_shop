@@ -283,8 +283,8 @@ def temp_apiship_auth(request):
     connection_token = 'application_connection_f61fdc38-06ce-4de7-9ffa-cbe715ab1088'
     
     # ⚠️ ВСТАВЬТЕ СЮДА ВАШ EMAIL И ПАРОЛЬ ОТ САЙТА APISHIP.RU (если есть)
-    apiship_email = 'spbpb@bk.ru' 
-    apiship_password = 'GTFMH9!zV89jnDV'
+    apiship_email = getattr(settings, 'APISHIP_LOGIN', '')
+    apiship_password = getattr(settings, 'APISHIP_PASSWORD', '')
 
     results = {}
     
