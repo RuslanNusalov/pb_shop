@@ -42,5 +42,14 @@
                 }
             });
         });
+        (function () {
+            var hidden = document.querySelector('input[name="ozon_point_id"]');
+            if (!hidden || !hidden.value) return;
+            var radio = document.querySelector('input[name="ozon_point_radio"][value="' + hidden.value + '"]');
+            if (!radio) return;
+            radio.checked = true;
+            var label = radio.closest('.pvz-item');
+            if (label) { label.classList.remove('border-gray-200'); label.classList.add('border-black', 'bg-blue-50'); }
+            })();
     </script>
 {% endif %}
