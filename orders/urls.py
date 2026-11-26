@@ -17,5 +17,4 @@ urlpatterns = [
         # Ozon HTMX маршруты
     path('ozon/pvz/', views.ozon_pvz_list, name='ozon_pvz_list'),
     path('ozon/checkout/', views.ozon_delivery_checkout, name='ozon_delivery_checkout'),
-    path('temp/apiship-token-test/', views.temp_apiship_token_test, name='temp_apiship_token_test'),
 ]
