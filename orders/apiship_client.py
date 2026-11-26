@@ -7,8 +7,9 @@ logger = logging.getLogger(__name__)
 
 class ApiShipClient:
     def __init__(self):
-        self.api_key = getattr(settings, 'APISHIP_API_KEY', '')
-        self.account_id = getattr(settings, 'APISHIP_ACCOUNT_ID', '')
+    # ВРЕМЕННО: хардкод для теста
+        self.api_key = 'application_connection_f61fdc38-06ce-4de7-9ffa-cbe715ab1088'
+        self.account_id = '41212'
         self.base_url = "https://api.apiship.ru/v1"
         
         # Диагностика
