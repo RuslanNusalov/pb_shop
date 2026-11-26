@@ -266,3 +266,56 @@ def ozon_delivery_checkout(request):
         'delivery_time': f"{delivery_time} дн.",
         'map_point_id': map_point_id
     })
+
+
+
+
+@require_GET
+def temp_apiship_auth(request):
+    """Диагностика авторизации ApiShip. УДАЛИТЬ ПОСЛЕ ИСПОЛЬЗОВАНИЯ!"""
+    if not request.user.is_superuser:
+        return JsonResponse({'error': 'Только для администраторов'}, status=403)
+    
+    base_url = "https://api.apiship.ru/v1"
+    
+    # ВАШИ ДАННЫЕ ИЗ ЛК
+    account_id = '41212'
+    connection_token = 'application_connection_f61fdc38-06ce-4de7-9ffa-cbe715ab1088'
+    
+    # ⚠️ ВСТАВЬТЕ СЮДА ВАШ EMAIL И ПАРОЛЬ ОТ САЙТА APISHIP.RU (если есть)
+    apiship_email = 'spbpb@bk.ru' 
+    apiship_password = 'GTFMH9!zV89jnDV'
+
+    results = {}
+    
+    # Тест 1: Вход по ID и токену подключения
+    try:
+        r = requests.post(f"{base_url}/users/login", json={"login": account_id, "password": connection_token}, timeout=10)
+        results['test_1_id_and_connection'] = {'status': r.status_code, 'response': r.text[:300]}
+    except Exception as e:
+        results['test_1'] = {'error': str(e)}
+        
+    # Тест 2: Вход по Email и паролю от ЛК
+    try:
+        r = requests.post(f"{base_url}/users/login", json={"login": apiship_email, "password": apiship_password}, timeout=10)
+        results['test_2_email_and_password'] = {'status': r.status_code, 'response': r.text[:300]}
+    except Exception as e:
+        results['test_2'] = {'error': str(e)}
+        
+    # Тест 3: Прямой запрос к ПВЗ с Bearer токеном подключения
+    try:
+        headers = {"Authorization": f"Bearer {connection_token}"}
+        r = requests.get(f"{base_url}/lists/points?limit=1&offset=0&filter=city=Москва;providerKey=ozonlog", headers=headers, timeout=10)
+        results['test_3_bearer_connection_token'] = {'status': r.status_code, 'response': r.text[:300]}
+    except Exception as e:
+        results['test_3'] = {'error': str(e)}
+
+    # Тест 4: Прямой запрос к ПВЗ с заголовком X-Api-Key
+    try:
+        headers = {"X-Api-Key": connection_token}
+        r = requests.get(f"{base_url}/lists/points?limit=1&offset=0&filter=city=Москва;providerKey=ozonlog", headers=headers, timeout=10)
+        results['test_4_x_api_key'] = {'status': r.status_code, 'response': r.text[:300]}
+    except Exception as e:
+        results['test_4'] = {'error': str(e)}
+        
+    return JsonResponse(results, json_dumps_params={'ensure_ascii': False})
