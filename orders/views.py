@@ -1,12 +1,7 @@
-import csv
+
 import logging
-import os
-import re
-import time
-import traceback
 from decimal import Decimal
 
-import requests
 from django.conf import settings
 from django.contrib import messages  # ✅ ДОБАВЛЕНО
 from django.contrib.auth.decorators import login_required
@@ -14,7 +9,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.models import F, Sum
-from django.http import HttpResponse, JsonResponse
+from django.http import HttpResponse
 from django.shortcuts import (  # ✅ ДОБАВЛЕНО get_object_or_404
     get_object_or_404,
     redirect,
@@ -22,7 +17,6 @@ from django.shortcuts import (  # ✅ ДОБАВЛЕНО get_object_or_404
 )
 from django.template.response import TemplateResponse
 from django.urls import reverse_lazy  # ✅ ДОБАВЛЕНО reverse_lazy
-from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.views.decorators.http import require_GET
 from django.views.generic import DetailView, View
@@ -33,10 +27,8 @@ from main.mixins import WishlistContextMixin
 from main.models import ProductSize
 
 from .apiship_client import ApiShipClient
-from .cities import find_city_coords_fallback
 from .forms import OrderForm
-from .models import Order, OrderItem, OzonPVZ
-from .ozon_client import OzonDeliveryClient
+from .models import Order, OrderItem
 
 logger = logging.getLogger(__name__)
 
