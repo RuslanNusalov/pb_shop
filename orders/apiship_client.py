@@ -7,13 +7,18 @@ logger = logging.getLogger(__name__)
 
 class ApiShipClient:
     def __init__(self):
-        self.token = getattr(settings, 'APISHIP_API_KEY', '')
+        self.token = getattr(settings, 'APISHIP_TOKEN', '')
         self.base_url = "https://api.apiship.ru/v1"
         
-        if not self.token:
-            logger.error("❌ APISHIP_TOKEN не настроен!")
+        # Подробная диагностика
+        if self.token:
+            logger.info(f"✅ ApiShip токен найден: {self.token[:10]}... (длина: {len(self.token)})")
         else:
-            logger.info(f"✅ ApiShip токен найден: {self.token[:10]}...")
+            logger.error(f"❌ APISHIP_TOKEN пуст! settings.APISHIP_TOKEN = '{getattr(settings, 'APISHIP_TOKEN', 'НЕ НАЙДЕНО')}'")
+            # Попробуем прочитать напрямую из os.environ
+            import os
+            env_token = os.environ.get('APISHIP_TOKEN', '')
+            logger.error(f"❌ os.environ APISHIP_TOKEN = '{env_token[:10] if env_token else 'ПУСТО'}...'")
 
     def _get_headers(self):
         return {
