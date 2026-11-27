@@ -1,22 +1,20 @@
 {% if not pvz_list %}
-    <p class="text-gray-500 text-sm text-center py-4">ПВЗ не найдены. Попробуйте изменить запрос.</p>
+    <p class="text-gray-500 text-sm text-center py-4">ПВЗ не найдены. Попробуйте уточнить город.</p>
 {% else %}
     <div class="space-y-2 max-h-96 overflow-y-auto pr-2 custom-scrollbar">
-        <p class="text-xs text-gray-600 mb-2">Найдено {{ pvz_list|length }} пунктов. Выберите удобный:</p>
+        <p class="text-xs text-gray-600 mb-2 font-medium">Найдено {{ pvz_list|length }} пунктов. Выберите удобный:</p>
+        
         {% for pvz in pvz_list %}
-            <label class="pvz-item flex items-start p-3 border-2 border-gray-200 rounded-sm cursor-pointer hover:border-black transition">
+            <label class="pvz-item flex items-start p-3 border-2 border-gray-200 rounded-sm cursor-pointer hover:border-black transition bg-white">
                 <input type="radio" 
                        name="ozon_point_radio" 
                        value="{{ pvz.id }}" 
-                       class="mt-1 mr-3 h-4 w-4 text-black border-black"
+                       class="mt-1 mr-3 h-4 w-4 text-black border-black focus:ring-0"
                        hx-get="{% url 'orders:ozon_delivery_checkout' %}"
                        hx-target="#ozon-delivery-cost-block"
                        hx-swap="innerHTML"
-                       hx-vals='js:{
-                           "map_point_id": "{{ pvz.id }}",
-                           "phone": document.querySelector("input[name=phone]")?.value.replace(/\D/g, "") || "",
-                           "ozon_city": document.querySelector("input[name=ozon_city]")?.value || "Москва"
-                       }'>
+                       hx-include="#ozon_city, #ozon_phone"
+                       hx-vals='{"map_point_id": "{{ pvz.id }}"}'>
                 <div class="text-sm flex-1">
                     <div class="font-medium text-black">{{ pvz.name|default:"Пункт выдачи" }}</div>
                     <div class="text-gray-600 text-xs mt-1">📍 {{ pvz.address }}</div>
@@ -29,27 +27,36 @@
     </div>
     
     <script>
-        document.querySelectorAll('input[name="ozon_point_radio"]').forEach(radio => {
-            radio.addEventListener('change', function() {
-                document.querySelectorAll('.pvz-item').forEach(item => {
-                    item.classList.remove('border-black', 'bg-blue-50');
-                    item.classList.add('border-gray-200');
-                });
-                const selectedLabel = this.closest('.pvz-item');
-                if (selectedLabel) {
-                    selectedLabel.classList.remove('border-gray-200');
-                    selectedLabel.classList.add('border-black', 'bg-blue-50');
+        (function() {
+            // 1. ВОССТАНОВЛЕНИЕ ВЫБОРА: читаем ID из скрытого поля формы
+            const hiddenPointId = document.querySelector('input[name="ozon_point_id"]')?.value;
+            
+            if (hiddenPointId) {
+                const radio = document.querySelector(`input[name="ozon_point_radio"][value="${hiddenPointId}"]`);
+                if (radio) {
+                    radio.checked = true;
+                    const label = radio.closest('.pvz-item');
+                    if (label) {
+                        label.classList.remove('border-gray-200', 'bg-white');
+                        label.classList.add('border-black', 'bg-blue-50');
+                    }
                 }
+            }
+
+            // 2. ВИЗУАЛЬНОЕ ВЫДЕЛЕНИЕ при клике (дублируем логику HTMX для мгновенного отклика)
+            document.querySelectorAll('input[name="ozon_point_radio"]').forEach(radio => {
+                radio.addEventListener('change', function() {
+                    document.querySelectorAll('.pvz-item').forEach(item => {
+                        item.classList.remove('border-black', 'bg-blue-50');
+                        item.classList.add('border-gray-200', 'bg-white');
+                    });
+                    const selectedLabel = this.closest('.pvz-item');
+                    if (selectedLabel) {
+                        selectedLabel.classList.remove('border-gray-200', 'bg-white');
+                        selectedLabel.classList.add('border-black', 'bg-blue-50');
+                    }
+                });
             });
-        });
-        (function () {
-            var hidden = document.querySelector('input[name="ozon_point_id"]');
-            if (!hidden || !hidden.value) return;
-            var radio = document.querySelector('input[name="ozon_point_radio"][value="' + hidden.value + '"]');
-            if (!radio) return;
-            radio.checked = true;
-            var label = radio.closest('.pvz-item');
-            if (label) { label.classList.remove('border-gray-200'); label.classList.add('border-black', 'bg-blue-50'); }
-            })();
+        })();
     </script>
 {% endif %}

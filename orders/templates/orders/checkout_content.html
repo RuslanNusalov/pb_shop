@@ -438,10 +438,30 @@
 
         // Глобальная функция для HTMX (вызывается из ozon_delivery_cost.html)
         window.updateOzonDelivery = function(cost, pointId, pointName) {
-            costInput.value = cost || 0;
-            pointIdInput.value = pointId || '';
+            const costNum = parseFloat(cost) || 0;
+            
+            // 1. Обновляем скрытые поля формы
+            document.getElementById('ozon-point-id').value = pointId || '';
             document.getElementById('ozon-point-name').value = pointName || '';
-            updateSummaryDelivery(cost, cost == 0 ? 'Бесплатно' : '₽' + parseFloat(cost).toFixed(0));
+            document.getElementById('ozon-delivery-cost').value = costNum;
+            document.getElementById('delivery-method').value = 'ozon';
+
+            // 2. Обновляем правую колонку (Итого)
+            const summaryDelivery = document.getElementById('summary-delivery');
+            const summaryTotal = document.getElementById('summary-total');
+            
+            if (summaryDelivery) {
+                summaryDelivery.textContent = costNum === 0 ? 'Бесплатно' : '₽' + costNum.toFixed(0);
+                summaryDelivery.classList.remove('italic', 'text-xs', 'text-gray-600');
+                summaryDelivery.classList.add('font-bold', 'text-black');
+            }
+            
+            if (summaryTotal) {
+                const productsTotal = parseFloat('{{ total|floatformat:0 }}'.replace(/\s/g, '')) || 0;
+                summaryTotal.textContent = '₽' + (productsTotal + costNum).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+            }
+
+            // 3. Принудительно запускаем валидацию, чтобы разблокировать кнопку "Оформить"
             validateForm();
         };
 
