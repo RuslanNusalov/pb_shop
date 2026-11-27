@@ -75,6 +75,33 @@ class CheckoutView(WishlistContextMixin, CartMixin, View):
         if not form_data.get('email') and request.user.is_authenticated:
             form_data['email'] = request.user.email
 
+        # ==========================================
+        # 1. УМНАЯ ПОДМЕНА ДАННЫХ ДЛЯ ВАЛИДАЦИИ
+        # ==========================================
+        delivery_method = form_data.get('delivery_method', 'ozon')
+
+        if delivery_method in ['ozon', 'pickup']:
+            # А. Телефон: для Ozon берем из специального поля, иначе форма его не увидит
+            if delivery_method == 'ozon':
+                form_data['phone'] = form_data.get('ozon_phone', '')
+                form_data['address'] = f"ПВЗ Ozon: {form_data.get('ozon_point_name', 'Не указан')}"
+                form_data['city'] = form_data.get('ozon_city', 'Не указан')
+            else:  # pickup
+                form_data['address'] = "Самовывоз из магазина"
+                form_data['city'] = "Санкт-Петербург"  # Замените на ваш город, если нужно
+
+            # Б. Имя и Фамилия: так как блок адреса скрыт, подставляем данные пользователя или заглушку, 
+            # чтобы форма не ругалась на пустые обязательные поля.
+            if not form_data.get('first_name'):
+                form_data['first_name'] = request.user.first_name if request.user.is_authenticated else "Покупатель"
+            if not form_data.get('last_name'):
+                form_data['last_name'] = request.user.last_name if request.user.is_authenticated else "Интернет-магазин"
+            
+            # В. Остальные обязательные поля адреса заполняем безопасными значениями по умолчанию
+            form_data['region'] = form_data.get('region') or "Не указан"
+            form_data['postal_code'] = form_data.get('postal_code') or "000000"
+        # ==========================================
+
         form = OrderForm(form_data, user=request.user)
 
         if not form.is_valid():
@@ -82,7 +109,6 @@ class CheckoutView(WishlistContextMixin, CartMixin, View):
             context = self._checkout_context(
                 form, cart, error_message='Пожалуйста, исправьте ошибки в форме.'
             )
-            # ✅ Если HTMX — возвращаем частичный шаблон, иначе полную страницу
             if request.headers.get('HX-Request'):
                 return TemplateResponse(request, 'orders/checkout_content.html', context)
             return render(request, 'orders/checkout.html', context)
@@ -102,6 +128,10 @@ class CheckoutView(WishlistContextMixin, CartMixin, View):
                 subtotal = cart.subtotal
                 discount = cart.promo_discount
                 total = subtotal - discount
+                
+                # Получаем стоимость доставки из скрытого поля (по умолчанию 0)
+                delivery_cost = float(form_data.get('ozon_delivery_cost', 0) if delivery_method == 'ozon' else 0)
+                final_total = total + delivery_cost
 
                 order = Order.objects.create(
                     user=request.user,
@@ -109,6 +139,7 @@ class CheckoutView(WishlistContextMixin, CartMixin, View):
                     first_name=form.cleaned_data['first_name'],
                     last_name=form.cleaned_data['last_name'],
                     email=form.cleaned_data['email'],
+                    # Благодаря подмене выше, здесь окажутся корректные данные для Ozon/Pickup
                     address=form.cleaned_data.get('address', ''),
                     city=form.cleaned_data.get('city', ''),
                     region=form.cleaned_data.get('region', ''),
@@ -119,7 +150,10 @@ class CheckoutView(WishlistContextMixin, CartMixin, View):
                     subtotal=subtotal,
                     promo_discount=discount,
                     promo_code=cart.promo_code,
-                    total=total,
+                    total=final_total, # Итоговая сумма с учетом доставки
+                    # Если в вашей модели Order есть эти поля, раскомментируйте следующие две строки:
+                    # delivery_method=delivery_method,
+                    # delivery_cost=delivery_cost,
                 )
 
                 for item in cart_items:
