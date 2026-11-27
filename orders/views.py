@@ -65,6 +65,7 @@ class CheckoutView(WishlistContextMixin, CartMixin, View):
         return render(request, 'orders/checkout.html', context)
 
     def post(self, request):
+
         cart = self.get_cart(request)
 
         total_items = cart.items.aggregate(total=Sum('quantity'))['total'] or 0
@@ -81,7 +82,7 @@ class CheckoutView(WishlistContextMixin, CartMixin, View):
         delivery_method = form_data.get('delivery_method', 'ozon')
 
         if delivery_method in ['ozon', 'pickup']:
-            # А. Телефон: для Ozon берем из специального поля, иначе форма его не увидит
+            # А. Телефон и адрес: для Ozon берем из специальных полей
             if delivery_method == 'ozon':
                 form_data['phone'] = form_data.get('ozon_phone', '')
                 form_data['address'] = f"ПВЗ Ozon: {form_data.get('ozon_point_name', 'Не указан')}"
@@ -90,14 +91,13 @@ class CheckoutView(WishlistContextMixin, CartMixin, View):
                 form_data['address'] = "Самовывоз из магазина"
                 form_data['city'] = "Санкт-Петербург"  # Замените на ваш город, если нужно
 
-            # Б. Имя и Фамилия: так как блок адреса скрыт, подставляем данные пользователя или заглушку, 
-            # чтобы форма не ругалась на пустые обязательные поля.
+            # Б. Имя и Фамилия: подставляем данные пользователя или заглушку
             if not form_data.get('first_name'):
                 form_data['first_name'] = request.user.first_name if request.user.is_authenticated else "Покупатель"
             if not form_data.get('last_name'):
                 form_data['last_name'] = request.user.last_name if request.user.is_authenticated else "Интернет-магазин"
             
-            # В. Остальные обязательные поля адреса заполняем безопасными значениями по умолчанию
+            # В. Остальные обязательные поля адреса заполняем безопасными значениями
             form_data['region'] = form_data.get('region') or "Не указан"
             form_data['postal_code'] = form_data.get('postal_code') or "000000"
         # ==========================================
@@ -117,6 +117,7 @@ class CheckoutView(WishlistContextMixin, CartMixin, View):
 
         try:
             with transaction.atomic():
+                # 1. Проверка остатков
                 for item in cart_items:
                     product_size = ProductSize.objects.select_for_update().get(pk=item.product_size_id)
                     if product_size.stock < item.quantity:
@@ -125,37 +126,51 @@ class CheckoutView(WishlistContextMixin, CartMixin, View):
                             f'(размер {product_size.size.name}): доступно {product_size.stock} шт.'
                         )
 
+                # 2. Расчет сумм
                 subtotal = cart.subtotal
                 discount = cart.promo_discount
                 total = subtotal - discount
                 
-                # Получаем стоимость доставки из скрытого поля (по умолчанию 0)
-                delivery_cost = float(form_data.get('ozon_delivery_cost', 0) if delivery_method == 'ozon' else 0)
+                # БЕЗОПАСНОЕ получение стоимости доставки (превращаем в Decimal)
+                raw_delivery_cost = form_data.get('ozon_delivery_cost', 0) if delivery_method == 'ozon' else 0
+                try:
+                    delivery_cost = Decimal(str(raw_delivery_cost).replace(',', '.'))
+                except (ValueError, TypeError):
+                    delivery_cost = Decimal('0.00')
+                    
                 final_total = total + delivery_cost
 
+                # 3. Формируем комментарий для менеджера
+                delivery_comment = ""
+                if delivery_method == 'ozon':
+                    delivery_comment = f"Доставка Ozon. ПВЗ: {form_data.get('ozon_point_name', 'Не указан')} (ID: {form_data.get('ozon_point_id', '')}). Стоимость доставки: {delivery_cost} ₽"
+                elif delivery_method == 'pickup':
+                    delivery_comment = "Самовывоз из магазина"
+                
+                user_instructions = form.cleaned_data.get('special_instructions', '').strip()
+                final_instructions = f"{delivery_comment}\n{user_instructions}".strip() if delivery_comment else user_instructions
+
+                # 4. Создание заказа (ТОЛЬКО проверенные поля модели)
                 order = Order.objects.create(
                     user=request.user,
                     cart=cart,
                     first_name=form.cleaned_data['first_name'],
                     last_name=form.cleaned_data['last_name'],
                     email=form.cleaned_data['email'],
-                    # Благодаря подмене выше, здесь окажутся корректные данные для Ozon/Pickup
                     address=form.cleaned_data.get('address', ''),
                     city=form.cleaned_data.get('city', ''),
                     region=form.cleaned_data.get('region', ''),
                     postal_code=form.cleaned_data.get('postal_code', ''),
                     phone=form.cleaned_data.get('phone', ''),
-                    special_instructions=form.cleaned_data.get('special_instructions', ''),
+                    special_instructions=final_instructions,
                     status='pending',
                     subtotal=subtotal,
                     promo_discount=discount,
                     promo_code=cart.promo_code,
-                    total=final_total, # Итоговая сумма с учетом доставки
-                    # Если в вашей модели Order есть эти поля, раскомментируйте следующие две строки:
-                    # delivery_method=delivery_method,
-                    # delivery_cost=delivery_cost,
+                    total=final_total,
                 )
 
+                # 5. Создание товаров заказа и списание остатков
                 for item in cart_items:
                     ProductSize.objects.filter(pk=item.product_size_id).update(
                         stock=F('stock') - item.quantity
@@ -168,18 +183,33 @@ class CheckoutView(WishlistContextMixin, CartMixin, View):
                         price=item.product.price or Decimal('0.00'),
                     )
 
+                # 6. Обновление промокода
                 if cart.promo_code_id:
                     PromoCode.objects.filter(pk=cart.promo_code_id).update(
                         usage_count=F('usage_count') + 1
                     )
 
+                # 7. Очистка корзины
                 cart.items.all().delete()
                 cart.promo_code = None
                 cart.promo_discount = Decimal('0.00')
                 cart.save(update_fields=['promo_code', 'promo_discount'])
 
         except ValidationError as e:
+            logger.error(f"Validation error during checkout: {e}")
             context = self._checkout_context(form, cart, error_message=str(e))
+            if request.headers.get('HX-Request'):
+                return TemplateResponse(request, 'orders/checkout_content.html', context)
+            return render(request, 'orders/checkout.html', context)
+            
+        except Exception as e:
+            # Перехватывает ЛЮБУЮ неожиданную ошибку (например, ошибку базы данных), 
+            # логирует полный traceback и не дает сайту упасть с 500-й ошибкой.
+            logger.exception(f"Unexpected error during checkout: {e}")
+            context = self._checkout_context(
+                form, cart, 
+                error_message='Произошла внутренняя ошибка при оформлении заказа. Пожалуйста, попробуйте позже или свяжитесь с нами.'
+            )
             if request.headers.get('HX-Request'):
                 return TemplateResponse(request, 'orders/checkout_content.html', context)
             return render(request, 'orders/checkout.html', context)
