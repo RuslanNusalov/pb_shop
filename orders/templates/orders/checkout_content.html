@@ -361,152 +361,186 @@
 
 <!-- ИСПРАВЛЕНИЕ 1: IIFE вместо DOMContentLoaded для совместимости с HTMX -->
 <script>
-    (function() {
-        const form = document.getElementById('order-form');
-        if (!form) return;
+(function() {
+    // ==========================================
+    // 1. ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
+    // ==========================================
+    
+    // Нормализация телефона для Ozon (7XXXXXXXXXX)
+    function normalizePhoneForOzon(phone) {
+        if (!phone) return '';
+        let digits = phone.replace(/\D/g, '');
+        if (digits.startsWith('8') && digits.length === 11) {
+            digits = '7' + digits.slice(1);
+        } else if (digits.length === 10) {
+            digits = '7' + digits;
+        }
+        return (digits.length === 11 && digits.startsWith('7')) ? digits : '';
+    }
 
-        // Подсветка полей при фокусе
-        const inputs = form.querySelectorAll('input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]), textarea, select');
-        inputs.forEach(input => {
-            input.classList.add('transition-colors', 'duration-200');
-            input.addEventListener('focus', function() { this.classList.add('border-black', 'ring-1', 'ring-black'); });
-            input.addEventListener('blur', function() { this.classList.remove('border-black', 'ring-1', 'ring-black'); });
+    // Инициализация маски телефона (безопасная для HTMX)
+    function initPhoneMasks() {
+        const phoneInputs = document.querySelectorAll('#ozon_phone, input[name="phone"]');
+        phoneInputs.forEach(input => {
+            // Проверяем, чтобы не инициализировать маску дважды на одном поле
+            if (input && !input._imaskInitialized && typeof IMask !== 'undefined') {
+                IMask(input, {
+                    mask: '+{7} (000) 000-00-00',
+                    lazy: false,
+                    placeholderChar: '_'
+                });
+                input._imaskInitialized = true; 
+            }
         });
+    }
 
-        // Элементы управления доставкой
-        const dmOzon = document.getElementById('dm-ozon');
-        const dmCdek = document.getElementById('dm-cdek');
-        const dmPickup = document.getElementById('dm-pickup');
-        
-        const ozonBlock = document.getElementById('ozon-delivery-block');
-        const cdekBlock = document.getElementById('cdek-delivery-block');
-        const pickupBlock = document.getElementById('pickup-delivery-block');
-        const addressBlock = document.getElementById('shipping-address-block');
-        
-        const summaryDelivery = document.getElementById('summary-delivery');
-        const summaryTotal = document.getElementById('summary-total');
-        const submitBtn = document.getElementById('submit-order-btn');
-        const submitBtnText = document.getElementById('submit-btn-text');
-        
-        const pointIdInput = document.getElementById('ozon-point-id');
-        const costInput = document.getElementById('ozon-delivery-cost');
-        const deliveryMethodInput = document.getElementById('delivery-method');
-        const productsTotal = parseFloat('{{ total|floatformat:0 }}') || 0;
+    // Запускаем маску сразу и при любых обновлениях через HTMX
+    initPhoneMasks();
+    document.body.addEventListener('htmx:load', initPhoneMasks);
 
-        // Поля адреса (для управления required)
-        const addressFields = addressBlock.querySelectorAll('input[required], select[required]');
+    // ==========================================
+    // 2. ОСНОВНАЯ ЛОГИКА ФОРМЫ
+    // ==========================================
+    const form = document.getElementById('order-form');
+    if (!form) return;
 
-        function updateDeliveryVisibility() {
-            const isOzon = dmOzon.checked;
-            const isCdek = dmCdek.checked;
-            const isPickup = dmPickup.checked;
+    // Подсветка полей при фокусе
+    const inputs = form.querySelectorAll('input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]), textarea, select');
+    inputs.forEach(input => {
+        input.classList.add('transition-colors', 'duration-200');
+        input.addEventListener('focus', function() { this.classList.add('border-black', 'ring-1', 'ring-black'); });
+        input.addEventListener('blur', function() { this.classList.remove('border-black', 'ring-1', 'ring-black'); });
+    });
 
-            ozonBlock.classList.add('hidden');
-            cdekBlock.classList.add('hidden');
-            pickupBlock.classList.add('hidden');
-            addressBlock.classList.add('hidden');
+    // Элементы управления
+    const dmOzon = document.getElementById('dm-ozon');
+    const dmCdek = document.getElementById('dm-cdek');
+    const dmPickup = document.getElementById('dm-pickup');
+    
+    const ozonBlock = document.getElementById('ozon-delivery-block');
+    const cdekBlock = document.getElementById('cdek-delivery-block');
+    const pickupBlock = document.getElementById('pickup-delivery-block');
+    const addressBlock = document.getElementById('shipping-address-block');
+    
+    const summaryDelivery = document.getElementById('summary-delivery');
+    const summaryTotal = document.getElementById('summary-total');
+    const submitBtn = document.getElementById('submit-order-btn');
+    const submitBtnText = document.getElementById('submit-btn-text');
+    
+    const pointIdInput = document.getElementById('ozon-point-id');
+    const deliveryMethodInput = document.getElementById('delivery-method');
+    
+    // Считаем итог товаров ОДИН раз (убираем пробелы, если есть)
+    const productsTotal = parseFloat('{{ total|floatformat:0 }}'.replace(/\s/g, '')) || 0;
 
-            if (isOzon) {
-                ozonBlock.classList.remove('hidden');
-                addressBlock.classList.add('hidden');
-                deliveryMethodInput.value = 'ozon';
-                // Снимаем required с полей адреса
-                addressFields.forEach(f => f.removeAttribute('required'));
-            } else if (isCdek) {
-                cdekBlock.classList.remove('hidden');
-                addressBlock.classList.remove('hidden');
-                deliveryMethodInput.value = 'cdek';
-                // Возвращаем required
-                addressFields.forEach(f => f.setAttribute('required', ''));
-                updateSummaryDelivery(0, 'Рассчитывается менеджером');
-            } else if (isPickup) {
-                pickupBlock.classList.remove('hidden');
-                addressBlock.classList.add('hidden');
-                deliveryMethodInput.value = 'pickup';
-                addressFields.forEach(f => f.removeAttribute('required'));
-                updateSummaryDelivery(0, 'Бесплатно');
-            }
-            validateForm();
+    const addressFields = addressBlock.querySelectorAll('input[required], select[required]');
+
+    function updateDeliveryVisibility() {
+        const isOzon = dmOzon.checked;
+        const isCdek = dmCdek.checked;
+        const isPickup = dmPickup.checked;
+
+        ozonBlock.classList.add('hidden');
+        cdekBlock.classList.add('hidden');
+        pickupBlock.classList.add('hidden');
+        addressBlock.classList.add('hidden');
+
+        if (isOzon) {
+            ozonBlock.classList.remove('hidden');
+            deliveryMethodInput.value = 'ozon';
+            addressFields.forEach(f => f.removeAttribute('required'));
+        } else if (isCdek) {
+            cdekBlock.classList.remove('hidden');
+            addressBlock.classList.remove('hidden');
+            deliveryMethodInput.value = 'cdek';
+            addressFields.forEach(f => f.setAttribute('required', ''));
+            updateSummaryDelivery(0, 'Рассчитывается менеджером');
+        } else if (isPickup) {
+            pickupBlock.classList.remove('hidden');
+            deliveryMethodInput.value = 'pickup';
+            addressFields.forEach(f => f.removeAttribute('required'));
+            updateSummaryDelivery(0, 'Бесплатно');
         }
+        validateForm();
+    }
 
-        function updateSummaryDelivery(cost, text) {
-            const costNum = parseFloat(cost) || 0;
+    function updateSummaryDelivery(cost, text) {
+        const costNum = parseFloat(cost) || 0;
+        if (summaryDelivery) {
             summaryDelivery.textContent = text || (costNum === 0 ? 'Бесплатно' : '₽' + costNum.toFixed(0));
-            summaryDelivery.classList.remove('italic', 'text-xs');
-            summaryTotal.textContent = '₽' + (productsTotal + costNum).toFixed(0);
+            summaryDelivery.classList.remove('italic', 'text-xs', 'text-gray-600');
+            summaryDelivery.classList.add('font-bold', 'text-black');
         }
-
-        // Глобальная функция для HTMX (вызывается из ozon_delivery_cost.html)
-        window.updateOzonDelivery = function(cost, pointId, pointName) {
-            const costNum = parseFloat(cost) || 0;
-            
-            // 1. Обновляем скрытые поля формы
-            document.getElementById('ozon-point-id').value = pointId || '';
-            document.getElementById('ozon-point-name').value = pointName || '';
-            document.getElementById('ozon-delivery-cost').value = costNum;
-            document.getElementById('delivery-method').value = 'ozon';
-
-            // 2. Обновляем правую колонку (Итого)
-            const summaryDelivery = document.getElementById('summary-delivery');
-            const summaryTotal = document.getElementById('summary-total');
-            
-            if (summaryDelivery) {
-                summaryDelivery.textContent = costNum === 0 ? 'Бесплатно' : '₽' + costNum.toFixed(0);
-                summaryDelivery.classList.remove('italic', 'text-xs', 'text-gray-600');
-                summaryDelivery.classList.add('font-bold', 'text-black');
-            }
-            
-            if (summaryTotal) {
-                const productsTotal = parseFloat('{{ total|floatformat:0 }}'.replace(/\s/g, '')) || 0;
-                summaryTotal.textContent = '₽' + (productsTotal + costNum).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, " ");
-            }
-
-            // 3. Принудительно запускаем валидацию, чтобы разблокировать кнопку "Оформить"
-            validateForm();
-        };
-
-        function validateForm() {
-            const isOzon = dmOzon.checked;
-            const isCdek = dmCdek.checked;
-            
-            let isValid = true;
-            let btnText = 'Оформить заказ';
-
-            const email = form.querySelector('[name="email"]').value.trim();
-            if (!email) isValid = false;
-
-            if (isOzon) {
-                if (!pointIdInput.value) {
-                    isValid = false;
-                    btnText = 'Выберите пункт выдачи Ozon';
-                }
-            } else if (isCdek) {
-                const address = form.querySelector('[name="address"]').value.trim();
-                if (!address) {
-                    isValid = false;
-                    btnText = 'Заполните адрес доставки';
-                }
-            }
-
-            submitBtn.disabled = !isValid;
-            submitBtnText.textContent = btnText;
+        if (summaryTotal) {
+            summaryTotal.textContent = '₽' + (productsTotal + costNum).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, " ");
         }
+    }
 
-        [dmOzon, dmCdek, dmPickup].forEach(r => r.addEventListener('change', updateDeliveryVisibility));
-        form.addEventListener('input', validateForm);
+    // Глобальная функция для HTMX (вызывается из ozon_delivery_cost.html)
+    window.updateOzonDelivery = function(cost, pointId, pointName) {
+        const costNum = parseFloat(cost) || 0;
         
-        // Запускаем сразу при инициализации скрипта
-        updateDeliveryVisibility();
+        document.getElementById('ozon-point-id').value = pointId || '';
+        document.getElementById('ozon-point-name').value = pointName || '';
+        document.getElementById('ozon-delivery-cost').value = costNum;
+        document.getElementById('delivery-method').value = 'ozon';
 
-        // Авто-скролл к первой ошибке
-        const firstError = form.querySelector('.text-red-500');
-        if (firstError) {
-            const errorField = firstError.closest('div');
-            if (errorField) {
-                errorField.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        updateSummaryDelivery(costNum, costNum === 0 ? 'Бесплатно' : '₽' + costNum.toFixed(0));
+        validateForm();
+    };
+
+    function validateForm() {
+        const isOzon = dmOzon.checked;
+        const isCdek = dmCdek.checked;
+        
+        let isValid = true;
+        let btnText = 'Оформить заказ';
+
+        const email = form.querySelector('[name="email"]').value.trim();
+        if (!email) isValid = false;
+
+        if (isOzon) {
+            if (!pointIdInput.value) {
+                isValid = false;
+                btnText = 'Выберите пункт выдачи Ozon';
+            } else {
+                const ozonPhone = document.getElementById('ozon_phone');
+                if (ozonPhone && ozonPhone.value.trim() !== '') {
+                    const cleanPhone = normalizePhoneForOzon(ozonPhone.value);
+                    if (!cleanPhone) {
+                        isValid = false;
+                        btnText = 'Введите корректный телефон';
+                    }
+                }
+            }
+        } else if (isCdek) {
+            const address = form.querySelector('[name="address"]').value.trim();
+            if (!address) {
+                isValid = false;
+                btnText = 'Заполните адрес доставки';
             }
         }
-    })();
+
+        submitBtn.disabled = !isValid;
+        submitBtnText.textContent = btnText;
+    }
+
+    // Слушатели событий
+    [dmOzon, dmCdek, dmPickup].forEach(r => r.addEventListener('change', updateDeliveryVisibility));
+    form.addEventListener('input', validateForm);
+    
+    // Запуск при загрузке
+    updateDeliveryVisibility();
+
+    // Авто-скролл к первой ошибке
+    const firstError = form.querySelector('.text-red-500');
+    if (firstError) {
+        const errorField = firstError.closest('div');
+        if (errorField) {
+            errorField.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    }
+})();
 </script>
 
 <style>

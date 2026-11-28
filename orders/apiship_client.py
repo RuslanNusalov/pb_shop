@@ -1,9 +1,41 @@
 import logging
+import re
 
 import requests
 from django.conf import settings
 
 logger = logging.getLogger(__name__)
+
+
+def normalize_phone_for_ozon(phone: str) -> str:
+    """
+    Приводит телефон к формату Ozon Seller API: 7XXXXXXXXXX (11 цифр без +).
+    - Убирает все нецифровые символы
+    - Если начинается с 8 → меняем на 7
+    - Если 10 цифр (без кода страны) → добавляем 7 в начало
+    - Если уже 11 цифр и начинается с 7 → оставляем как есть
+    - Возвращает пустую строку, если номер невалиден
+    """
+    if not phone:
+        return ''
+    
+    # Убираем всё, кроме цифр
+    digits = re.sub(r'\D', '', str(phone))
+    
+    # Если начинается с 8 (российский формат) → меняем на 7
+    if digits.startswith('8') and len(digits) == 11:
+        digits = '7' + digits[1:]
+    
+    # Если 10 цифр (без кода страны) → добавляем 7
+    elif len(digits) == 10:
+        digits = '7' + digits
+    
+    # Проверяем, что это валидный российский номер
+    if len(digits) == 11 and digits.startswith('7'):
+        return digits
+    
+    return ''
+
 
 class ApiShipClient:
     def __init__(self):

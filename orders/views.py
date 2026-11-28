@@ -87,7 +87,9 @@ class CheckoutView(WishlistContextMixin, CartMixin, View):
         if delivery_method in ['ozon', 'pickup']:
             # А. Телефон и адрес: для Ozon берем из специальных полей
             if delivery_method == 'ozon':
-                form_data['phone'] = form_data.get('ozon_phone', '')
+                from orders.apiship_client import normalize_phone_for_ozon
+                raw_phone = form_data.get('ozon_phone', '')
+                form_data['phone'] = normalize_phone_for_ozon(raw_phone)
                 form_data['address'] = f"ПВЗ Ozon: {form_data.get('ozon_point_name', 'Не указан')}"
                 form_data['city'] = form_data.get('ozon_city', 'Не указан')
             else:  # pickup
