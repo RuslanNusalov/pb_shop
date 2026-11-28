@@ -359,6 +359,17 @@
     </div>
 </main>
 
+
+<!-- Стили для выпадающего списка DaData -->
+<link href="https://cdn.jsdelivr.net/npm/suggestions-jquery@21.12.0/dist/css/suggestions.min.css" rel="stylesheet" />
+
+<!-- jQuery (нужен для плагина DaData, если его ещё нет на сайте) -->
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"></script>
+
+<!-- Плагин DaData Suggestions -->
+<script src="https://cdn.jsdelivr.net/npm/suggestions-jquery@21.12.0/dist/js/jquery.suggestions.min.js"></script>
+
+
 <!-- ИСПРАВЛЕНИЕ 1: IIFE вместо DOMContentLoaded для совместимости с HTMX -->
 <script>
 (function() {
@@ -540,6 +551,41 @@
             errorField.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
     }
+    // ==========================================
+    // 3. АВТОДОПОЛНЕНИЕ АДРЕСА ЧЕРЕZ DADATA
+    // ==========================================
+    $(document).ready(function() {
+        $("#ozon_city").suggestions({
+            token: "ВАШ_API_КЛЮЧ_DADATA", // ⚠️ ЗАМЕНИТЕ на ваш реальный ключ из ЛК DaData!
+            type: "ADDRESS",
+            count: 5,
+            geoLocation: false, // Не определять город по IP, пусть пользователь выберет сам
+            constraints: {
+                label: "",
+                locations: [{ country: "Россия" }] // Ограничиваем поиск Россией
+            },
+            onSelect: function(suggestion) {
+                if (suggestion) {
+                    // 1. Берем стандартизированное название города
+                    var city = suggestion.data.city || suggestion.data.settlement || suggestion.data.region;
+                    $("#ozon_city").val(city);
+                    
+                    // 2. Если пользователь выбрал адрес с улицей и домом, заполняем поле улицы
+                    var streetPart = suggestion.data.street || "";
+                    var housePart = suggestion.data.house || "";
+                    if (streetPart || housePart) {
+                        $("#ozon_street").val((streetPart + " " + housePart).trim());
+                    }
+                    
+                    // 3. Принудительно запускаем HTMX, чтобы загрузить ПВЗ для этого города
+                    // Небольшая задержка, чтобы HTMX успел подхватить обновленное значение
+                    setTimeout(function() {
+                        htmx.trigger("#ozon_city", "keyup");
+                    }, 100);
+                }
+            }
+        });
+    });
 })();
 </script>
 
