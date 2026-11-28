@@ -91,19 +91,19 @@
                             </div>
 
                             <div>
-                                <label for="ozon_city" class="block text-sm font-medium text-black mb-1">Город или адрес доставки *</label>
+                                <label for="ozon_city" class="block text-sm font-medium text-black mb-1">Город и адрес доставки *</label>
                                 <input type="text" 
                                     id="ozon_city" 
                                     name="ozon_city"
-                                    placeholder="Например: Москва, ул. Ленина, д. 10 или просто Санкт-Петербург"
+                                    placeholder="Например: Москва, Ленина 10 или просто Санкт-Петербург"
                                     class="w-full border border-gray-300 rounded-sm px-3 py-2 text-sm focus:outline-none focus:border-black transition-colors"
                                     hx-get="{% url 'orders:ozon_pvz_list' %}"
-                                    hx-trigger="keyup changed delay:1500ms, keyup[key=='Enter'], blur"
+                                    hx-trigger="keyup changed delay:600ms"
                                     hx-target="#ozon-pvz-container"
                                     hx-swap="innerHTML"
                                     hx-indicator="#pvz-loading"
                                     hx-include="#ozon_city, #ozon_phone">
-                                <p class="text-xs text-gray-500 mt-1">💡 Можно ввести только город или полный адрес — DaData найдёт координаты автоматически</p>
+                                <p class="text-xs text-gray-500 mt-1">💡 Введите город или полный адрес через запятую — найдём ближайшие ПВЗ</p>
                             </div>
 
                             <div id="pvz-loading" class="htmx-indicator hidden text-xs text-gray-500">

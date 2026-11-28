@@ -17,14 +17,9 @@
 </div>
 
 <script>
-    // Сообщаем главному шаблону, что доставка рассчитана, передаём данные для пересчёта
-    (function() {
-        if (typeof window.updateOzonDelivery === 'function') {
-            window.updateOzonDelivery(
-                '{{ cost }}',
-                '{{ map_point_id }}',
-                'ПВЗ №{{ map_point_id }}'
-            );
-        }
-    })();
+(function () {
+    if (typeof window.updateOzonDelivery === 'function') {
+        window.updateOzonDelivery('{{ cost }}', '{{ map_point_id }}', '{{ point_name|escapejs }} — {{ point_address|escapejs }}');
+    }
+})();
 </script>

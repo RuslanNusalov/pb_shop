@@ -1,0 +1,51 @@
+{% for pvz in pvz_list %}
+<label class="pvz-item flex items-start p-3 border-2 border-gray-200 rounded-sm cursor-pointer hover:border-black transition bg-white">
+    <input type="radio" name="ozon_point_radio" value="{{ pvz.id }}"
+           class="mt-1 mr-3 h-4 w-4 text-black border-black focus:ring-0"
+           hx-get="{% url 'orders:ozon_delivery_checkout' %}"
+           hx-target="#ozon-delivery-cost-block"
+           hx-swap="innerHTML"
+           hx-include="#ozon_city, #ozon_phone"
+           hx-vals='{"map_point_id": "{{ pvz.id }}", "point_name": "{{ pvz.name|default:"Пункт выдачи"|escapejs }}", "point_address": "{{ pvz.address|escapejs }}"}'>
+    <div class="text-sm flex-1">
+        <div class="font-medium text-black">{{ pvz.name|default:"Пункт выдачи" }}</div>
+        <div class="text-gray-600 text-xs mt-1">📍 {{ pvz.address }}</div>
+        {% if pvz.timetable %}<div class="text-gray-500 text-xs mt-1">🕐 {{ pvz.timetable|truncatechars:90 }}</div>{% endif %}
+    </div>
+</label>
+{% endfor %}
+
+{% if has_more %}
+<div id="pvz-load-more" class="pt-2">
+    <button type="button"
+            class="w-full border-2 border-black text-black text-xs font-bold py-2 hover:bg-black hover:text-white transition"
+            hx-get="{% url 'orders:ozon_pvz_list' %}"
+            hx-vals='{"append": "1", "offset": "{{ next_offset }}"}'
+            hx-include="#ozon_city, #ozon_street"
+            hx-target="#pvz-load-more"
+            hx-swap="outerHTML">
+        Показать ещё (осталось {{ total_found|add:"-"|add:next_offset }})
+    </button>
+</div>
+{% endif %}
+
+<script>
+(function () {
+    var saved = document.getElementById('ozon-point-id');
+    var pid = saved ? saved.value : '';
+    document.querySelectorAll('input[name="ozon_point_radio"]').forEach(function (r) {
+        if (pid && r.value === pid) r.checked = true;
+        var lbl = r.closest('.pvz-item');
+        if (r.checked && lbl) { lbl.classList.remove('border-gray-200','bg-white'); lbl.classList.add('border-black','bg-blue-50'); }
+        if (r.dataset.bound) return;
+        r.dataset.bound = '1';
+        r.addEventListener('change', function () {
+            document.querySelectorAll('.pvz-item').forEach(function (el) {
+                el.classList.remove('border-black','bg-blue-50'); el.classList.add('border-gray-200','bg-white');
+            });
+            var l = this.closest('.pvz-item');
+            if (l) { l.classList.remove('border-gray-200','bg-white'); l.classList.add('border-black','bg-blue-50'); }
+        });
+    });
+})();
+</script>

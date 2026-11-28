@@ -1,11 +1,13 @@
 
 import logging
+import re
 from decimal import Decimal
 
 from django.conf import settings
 from django.contrib import messages  # ✅ ДОБАВЛЕНО
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.core.cache import cache
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.models import F, Sum
@@ -32,6 +34,7 @@ from .models import Order, OrderItem
 
 logger = logging.getLogger(__name__)
 
+PVZ_PAGE_SIZE = 30
 #OZON_TEST_WAREHOUSE_ID = getattr(settings, 'OZON_TEST_WAREHOUSE_ID', '')
 #OZON_TEST_SKU = getattr(settings, 'OZON_TEST_SKU', '')
 
@@ -256,27 +259,83 @@ def cancel_order(request, order_id):
     return redirect('orders:order_detail', order_id=order.id)
 
 
+def _norm(s):
+    s = (s or '').lower().replace('ё', 'е')
+    s = re.sub(r'\b(ул|улица|проспект|пр-т|пр|переулок|пер|шоссе|ш|бульвар|б-р|набережная|наб|дом|д|корпус|к|строение|стр)\b\.?', ' ', s)
+    return re.sub(r'\s+', ' ', re.sub(r'[^\w\d\s]', ' ', s)).strip()
+
+
 @require_GET
 def ozon_pvz_list(request):
-    """Возвращает список ПВЗ Ozon через ApiShip"""
-    city = request.GET.get('ozon_city', '').strip()
-    if not city:
-        return HttpResponse("<p class='text-gray-500 text-sm text-center py-4'>Введите город для поиска ПВЗ</p>")
+    raw_city = (request.GET.get('ozon_city') or '').strip()
+    street_q = (request.GET.get('ozon_street') or '').strip()
+    is_append = request.GET.get('append') == '1'
+    try:
+        offset = max(int(request.GET.get('offset', 0)), 0)
+    except ValueError:
+        offset = 0
 
-    client = ApiShipClient()
-    response_data = client.get_pvz_list(city=city, service="ozonlog")
+    if not raw_city:
+        return HttpResponse("<p class='text-gray-500 text-sm text-center py-4'>Введите город, чтобы увидеть пункты выдачи</p>")
 
-    if 'error' in response_data:
-        return HttpResponse(f"<p class='text-red-500 text-sm text-center py-4'>Ошибка загрузки ПВЗ: {response_data['error']}</p>")
+    # Если в поле города ввели полный адрес: "Москва, Ленина, 10"
+    city, street_from_city = raw_city, ''
+    if ',' in raw_city:
+        parts = [p.strip() for p in raw_city.split(',') if p.strip()]
+        city = parts[0]
+        street_from_city = ' '.join(parts[1:])
+    if not street_q:
+        street_q = street_from_city
 
-    # ApiShip возвращает список в ключе 'rows'
-    points = response_data.get('rows', [])
-    
-    if not points:
-        return HttpResponse("<p class='text-gray-500 text-sm text-center py-4'>ПВЗ не найдены. Попробуйте изменить запрос.</p>")
+    cache_key = f"apiship_pvz_ozonlog_{_norm(city)}"
+    points = cache.get(cache_key)
+    if points is None:
+        data = ApiShipClient().get_all_pvz(city=city, service="ozonlog")
+        if 'error' in data:
+            return HttpResponse(f"<p class='text-red-500 text-sm text-center py-4'>Ошибка загрузки ПВЗ: {data['error']}</p>")
+        points = data.get('rows', [])
+        cache.set(cache_key, points, 60 * 30)
 
-    context = {'pvz_list': points}
-    return render(request, 'orders/partials/ozon_pvz_list.html', context)
+    # ── фильтрация по улице ──
+    tokens = [t for t in _norm(street_q).split() if t]
+    if tokens:
+        house_tokens = [t for t in tokens if t.isdigit()]
+        word_tokens = [t for t in tokens if not t.isdigit()]
+        scored = []
+        for p in points:
+            addr = _norm(f"{p.get('street') or ''} {p.get('address') or ''}")
+            house = _norm(str(p.get('house') or ''))
+            if word_tokens and not all(t in addr for t in word_tokens):
+                continue
+            score = 0
+            if word_tokens and all(t in _norm(p.get('street') or '') for t in word_tokens):
+                score += 10
+            if house_tokens and any(h == house for h in house_tokens):
+                score += 20
+            elif house_tokens and any(h in addr for h in house_tokens):
+                score += 5
+            scored.append((score, p))
+        scored.sort(key=lambda x: (-x[0], x[1].get('address') or ''))
+        filtered = [p for _, p in scored]
+    else:
+        filtered = sorted(points, key=lambda p: p.get('address') or '')
+
+    total_found = len(filtered)
+    page = filtered[offset:offset + PVZ_PAGE_SIZE]
+    next_offset = offset + len(page)
+
+    context = {
+        'pvz_list': page,
+        'total_found': total_found,
+        'total_city': len(points),
+        'city': city,
+        'street_q': street_q,
+        'next_offset': next_offset,
+        'has_more': next_offset < total_found,
+    }
+
+    template = 'orders/partials/ozon_pvz_rows.html' if is_append else 'orders/partials/ozon_pvz_list.html'
+    return render(request, template, context)
 
 
 @require_GET
@@ -284,6 +343,8 @@ def ozon_delivery_checkout(request):
     """Рассчитывает стоимость доставки через ApiShip"""
     map_point_id = request.GET.get('map_point_id', '')
     city = request.GET.get('ozon_city', 'Москва')
+    point_name = request.GET.get('point_name') or f"ПВЗ №{map_point_id}"
+    point_address = request.GET.get('point_address') or ''
     
     if not map_point_id:
         return HttpResponse("<p class='text-red-500 text-xs'>Выберите пункт выдачи.</p>")
@@ -340,6 +401,8 @@ def ozon_delivery_checkout(request):
         'cost': cost,
         'delivery_time': delivery_time,
         'map_point_id': map_point_id,
+        'point_name': point_name,
+        'point_address': point_address,
         'tariff_id': tariff.get('tariffId'),
         'provider_key': 'ozonlog',
     })

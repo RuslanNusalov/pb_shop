@@ -27,24 +27,18 @@ class ApiShipClient:
             "Accept": "application/json"
         }
 
-    def get_pvz_list(self, city, service="ozonlog"):
+    def get_pvz_list(self, city, service="ozonlog", limit=500, offset=0):
         url = f"{self.base_url}/lists/points"
         filter_str = f"city={city};providerKey={service};availableOperation=[2,3]"
-        
-        params = {
-            "limit": 100,
-            "offset": 0,
-            "filter": filter_str
-        }
-        
+        params = {"limit": limit, "offset": offset, "filter": filter_str}
         try:
-            logger.info(f"📤 ApiShip запрос ПВЗ: city={city}, service={service}")
-            response = requests.get(url, params=params, headers=self._get_headers(), timeout=15)
+            logger.info(f"📤 ApiShip ПВЗ: city={city}, offset={offset}")
+            response = requests.get(url, params=params, headers=self._get_headers(), timeout=20)
             response.raise_for_status()
             return response.json()
         except requests.exceptions.HTTPError as e:
-            logger.error(f"❌ ApiShip HTTP ошибка: {e.response.status_code} - {e.response.text}")
-            return {"error": f"HTTP {e.response.status_code}: {e.response.text[:200]}"}
+            logger.error(f"❌ ApiShip HTTP {e.response.status_code}: {e.response.text[:300]}")
+            return {"error": f"HTTP {e.response.status_code}"}
         except Exception as e:
             logger.error(f"❌ ApiShip ошибка: {e}")
             return {"error": str(e)}
@@ -92,3 +86,24 @@ class ApiShipClient:
         except Exception as e:
             logger.error(f"❌ ApiShip ошибка: {e}")
             return {"error": str(e)}
+
+    def get_all_pvz(self, city, service="ozonlog", max_points=3000):
+        """Тянет все ПВЗ города постранично (для локального поиска по улице)."""
+        all_rows = []
+        offset = 0
+        page = 500
+
+        while offset < max_points:
+            data = self.get_pvz_list(city=city, service=service, limit=page, offset=offset)
+            if 'error' in data:
+                return data if not all_rows else {'rows': all_rows, 'meta': {'total': len(all_rows)}}
+
+            rows = data.get('rows', [])
+            all_rows.extend(rows)
+
+            total = (data.get('meta') or {}).get('total', 0)
+            offset += len(rows)
+            if not rows or offset >= total:
+                break
+
+        return {'rows': all_rows, 'meta': {'total': len(all_rows)}}
