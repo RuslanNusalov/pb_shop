@@ -49,6 +49,7 @@ class CheckoutView(WishlistContextMixin, CartMixin, View):
             'subtotal': cart.subtotal,
             'total': cart.total,
             'error_message': error_message,
+            'dadata_api_key': settings.DADATA_API_KEY,
         }
 
     def get(self, request):

@@ -556,7 +556,7 @@
     // ==========================================
     $(document).ready(function() {
         $("#ozon_city").suggestions({
-            token: "ВАШ_API_КЛЮЧ_DADATA", // ⚠️ ЗАМЕНИТЕ на ваш реальный ключ из ЛК DaData!
+            token: "{{ dadata_api_key|escapejs }}",
             type: "ADDRESS",
             count: 5,
             geoLocation: false, // Не определять город по IP, пусть пользователь выберет сам
